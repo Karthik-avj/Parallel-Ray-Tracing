@@ -1,6 +1,6 @@
 #include<math.h>
 
-float* color(float* illumination, float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light){
+void color(float* illumination, float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light){
     // float illumination[3] = {0, 0, 0};
     float ambient[3] = {object[4]*light[3], object[5]*light[4], object[6]*light[5]};
 
