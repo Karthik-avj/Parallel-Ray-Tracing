@@ -1,6 +1,6 @@
 #include<stdio.h>
 
-void shadowed(int *is_shad, float *normal, float *light_dir, float *min_dist, float *origin, float *ray_dir, float *light_source, float *objects, int *object_idx, int *object_n){
+void shadowed(int *is_shad, float *normal, float *light_dir, float *min_dist, float *origin, float *ray_dir, float *light_source, float *objects, int *object_idx, int *object_len){
     // line 43
     float *intersection_point[3];
     for (int i=0; i<3; i++){
@@ -8,7 +8,7 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *min_dist, fl
     }
     
     // line 44
-    float object_center[] = {objects[*object_idx * *object_n], objects[*object_idx * *object_n + 1], objects[*object_idx * *object_n + 2]};
+    float object_center[] = {objects[*object_idx * *object_len], objects[*object_idx * *object_len + 1], objects[*object_idx * *object_len + 2]};
     ray_direction(normal, object_center, intersection_point);
     
     // line 45
