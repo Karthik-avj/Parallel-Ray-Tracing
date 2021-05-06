@@ -1,0 +1,130 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+void ray_direction(float* origin, float* point, float* vector){
+    float dr[3];
+    dr[0] = point[0]-origin[0];
+    dr[1] = point[1]-origin[1];
+    dr[2] = point[2]-origin[2];
+
+    float norm = dr[0]*dr[0] + dr[1]*dr[1]+dr[2]*dr[2];
+    vector[0] = dr[0]/norm;
+    vector[1] = dr[1]/norm;
+    vector[2] = dr[2]/norm;
+}
+
+void sphere_intersection(float* origin, float* ray_direction,
+    float* center, float* radius, float* dist){
+    
+
+    float b, c, disc;
+    float dr[3];
+    dr[0] = origin[0]-center[0];
+    dr[1] = origin[1]-center[1];
+    dr[2] = origin[2]-center[2];
+
+    b = 2 * (ray_direction[0]*dr[0]+
+    ray_direction[1]*dr[1]+
+    ray_direction[2]*dr[2]);
+
+    c = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] - *radius * *radius;
+
+    disc = b*b - (4*c);
+    if(disc<=0){
+        *dist = -1.0;
+        return;
+    }
+    else{
+        float val1, val2;
+        float sqd = sqrt(disc);
+        val1 = (-b + sqd)/2;
+        val2 = (-b - sqd)/2;
+        if(val1>0 && val2>0){
+            *dist = min(val1, val2);
+            return;
+        }
+        else{
+            *dist = -1.0;
+            return;
+        }
+    }
+}
+
+void nearest_intersection_object(float *objects, float *origin, int *object_n, float *ray_direction, int *objects_len, float *min_dist, int *object_idx){
+	float distances[*objects_len];
+	for(int i=0; i<(*objects_len); i++){
+		float center[] = {objects[i*(*object_n)+0], objects[i*(*object_n)+1], objects[i*(*object_n)+2]};
+		sphere_intersection(origin, ray_direction, center, &objects[i*(*object_n)+3], &distances[i]);	
+	}
+
+	for(int i=0; i<(*objects_len); i++){
+		if((distances[i]<(*min_dist)) && (distances[i]>0)){
+			*min_dist = distances[i];
+			*object_idx = i;
+		}
+	}
+}
+
+void shadowed(int *is_shad, float *normal, float *light_dir, float *min_dist, float *origin, float *ray_dir, float *light_source, float *objects, int *object_idx, int *object_n, int *objects_len){
+    // line 43
+    float intersection_point[3];
+    for (int i=0; i<3; i++){
+        intersection_point[i] = *min_dist * ray_dir[i] + origin[i];
+    }
+    
+    // line 44
+    float object_center[] = {objects[*object_idx * *object_n], objects[*object_idx * *object_n + 1], objects[*object_idx * *object_n + 2]};
+    ray_direction(object_center, intersection_point, normal);
+    
+    // line 45
+    float shifted_point[3];
+    for (int i=0; i<3; i++){
+        shifted_point[i] = 0.000001 * normal[i] + intersection_point[i];
+    }
+
+    // line 46
+    ray_direction(shifted_point, light_source, light_dir);
+
+    // line 48
+    float min_distance;
+    int useless;
+    nearest_intersection_object(objects, origin, object_n, ray_dir, objects_len, &min_distance, &useless);
+
+    // line 49
+    float intersection_to_light_dist = (light_source[0]-intersection_point[0])*(light_source[0]-intersection_point[0]) + (light_source[1]-intersection_point[1])*(light_source[1]-intersection_point[1]) + (light_source[2]-intersection_point[2])*(light_source[2]-intersection_point[2]);
+
+    // line 50
+    if (min_distance < intersection_to_light_dist) {
+        *is_shad = 1;
+    }
+    else{
+        *is_shad = 0;
+    }
+}
+
+void color(float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light, float* illumination){
+    // float illumination[3] = {0, 0, 0};
+    float ambient[3] = {object[4]*light[3], object[5]*light[4], object[6]*light[5]};
+
+    float nl_dp = normal_surface[0] * light_intersection[0] + \
+                  normal_surface[1] * light_intersection[1] + \
+                  normal_surface[2] * light_intersection[2];
+
+    float diffuse[3] = {object[7]*light[3]*nl_dp, object[8]*light[4]*nl_dp, object[9]*light[5]*nl_dp};
+
+    float light_ray[3] = {light_intersection[0]-ray_dir[0], light_intersection[1]-ray_dir[1], light_intersection[2]-ray_dir[2]};
+    float norm = sqrt(light_ray[0]*light_ray[0] + light_ray[1]*light_ray[1] + light_ray[2]*light_ray[2]);
+
+    float nlr_dp = normal_surface[0] * light_ray[0] + \
+                   normal_surface[1] * light_ray[1] + \
+                   normal_surface[2] * light_ray[2];
+
+    nlr_dp = nlr_dp / norm;
+    nlr_dp = pow(nlr_dp, 0.25*object[13]);
+
+    float specular[3] = {object[10]*light[6]*nlr_dp, object[11]*light[7]*nlr_dp, object[12]*light[8]*nlr_dp};
+
+    illumination[0] = ambient[0] + diffuse[0] + specular[0];
+    illumination[1] = ambient[1] + diffuse[1] + specular[1];
+    illumination[2] = ambient[2] + diffuse[2] + specular[2];
+}
