@@ -40,3 +40,16 @@ void sphere_intersection(float* origin, float* ray_direction,
 
 
 }
+
+
+void ray_direction(float* origin, float* point, float* vector){
+    float dr[3];
+    dr[0] = point[0]-origin[0];
+    dr[1] = point[1]-origin[1];
+    dr[2] = point[2]-origin[2];
+
+    float norm = dr[0]*dr[0] + dr[1]*dr[1]+dr[2]*dr[2];
+    vector[0] = dr[0]/norm;
+    vector[1] = dr[1]/norm;
+    vector[2] = dr[2]/norm;
+}
