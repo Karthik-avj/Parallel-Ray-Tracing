@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 void sphere_intersection(float* origin, float* ray_direction,
-                            float* center, float* radius, float* dist){
+    float* center, float* radius, float* dist){
     
 
     float b, c, disc;
