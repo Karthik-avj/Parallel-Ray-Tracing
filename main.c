@@ -173,16 +173,16 @@ int main(){
     float camera[] = {0, 0, 1};
     float single_object[14];
     float dx = 2 / N;
-    float image[N][N][3];
+    int image[N][N][3];
 
     for (int i=0; i<N;i++){
         for (int j=0; j<N;j++){
             float position[] = {-1 + dx * i, -1 + dx * j, 0};
             float illumination[] = {0, 0, 0};
             single_pixel(objects, &objects_len, light, camera, illumination, single_object, position);
-            image[i][j][0] = fmin(fmax(0, illumination[0]), 1);
-            image[i][j][1] = fmin(fmax(0, illumination[1]), 1);
-            image[i][j][2] = fmin(fmax(0, illumination[2]), 1);
+            image[i][j][0] = fmin(fmax(0, illumination[0]), 1)*256;
+            image[i][j][1] = fmin(fmax(0, illumination[1]), 1)*256;
+            image[i][j][2] = fmin(fmax(0, illumination[2]), 1)*256;
 
         }
     }
