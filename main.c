@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include<math.h>
+#include <math.h>
 
 #define N 500
 
@@ -54,12 +54,14 @@ void sphere_intersection(float* origin, float* ray_direction,
 }
 
 void nearest_intersection_object(float *objects, float *origin, int *object_n, float *ray_direction, int *objects_len, float *min_dist, int *object_idx){
-	float distances[14];
+	float distances[4];
 	// float distances[*objects_len];
 	for(int i=0; i<(*objects_len); i++){
 		float center[] = {objects[i*(*object_n)+0], objects[i*(*object_n)+1], objects[i*(*object_n)+2]};
 		sphere_intersection(origin, ray_direction, center, &objects[i*(*object_n)+3], &distances[i]);
 	}
+
+    // *min_dist = __INT_MAX__;
 
 	for(int i=0; i<(*objects_len); i++){
 		if((distances[i]<(*min_dist)) && (distances[i]>0)){
@@ -92,8 +94,8 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *min_dist, fl
     ray_direction(shifted_point, light_source, light_dir);
 
     // line 48
-    float min_distance;
-    int useless;
+    float min_distance = __INT_MAX__;
+    int useless = -1;
     nearest_intersection_object(objects, origin, object_n, ray_dir, objects_len, &min_distance, &useless);
 
     // line 49
@@ -145,34 +147,33 @@ void single_pixel(float* objects, int* objects_len ,float* lights, float* camera
 
     nearest_intersection_object(objects, camera, &object_n, ray_dir, objects_len, &min_dist, &n_object_idx);
 
-    if (n_object_idx == -1)
-        return;
-
-    else{
+    if (n_object_idx != -1){
         int is_shad, dummy;
         float normal[3], light_dir[3];
 
         float light_pos[] = {lights[0], lights[1], lights[2]};
         shadowed(&is_shad, normal, light_dir, &min_dist, camera, ray_dir, light_pos, objects, &n_object_idx, &object_n, objects_len);
-
-        if (is_shad == 0)
-            return;
-        else{
+        // printf("%d\n", is_shad);
+        if (is_shad == 0){
             for (int i=0; i<object_n; i++){
                 single_object[i] = objects[n_object_idx*object_n + i];
             }
-                color(normal, light_dir, ray_dir, single_object, lights, illumination);
+            color(normal, light_dir, ray_dir, single_object, lights, illumination);
         }
     }
 }
 
+
 int main(){
-    float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100};
-    int objects_len = 1;
+    float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 
+                       0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100,
+                       -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100,
+                       -0.2, -9000.7, -1, 9000, 0.1, 0.1, 0.1, 0.7, 0, 0, 1, 1, 1, 100};
+    int objects_len = 4;
     float light[] = {5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
     float single_object[14];
-    float dx = 2 / N;
+    float dx = 2.0 / N;
     int image[N][N][3];
 
     for (int i=0; i<N;i++){
@@ -180,14 +181,19 @@ int main(){
             float position[] = {-1 + dx * i, -1 + dx * j, 0};
             float illumination[] = {0, 0, 0};
             single_pixel(objects, &objects_len, light, camera, illumination, single_object, position);
-            image[i][j][0] = fmin(fmax(0, illumination[0]), 1)*256;
-            image[i][j][1] = fmin(fmax(0, illumination[1]), 1)*256;
-            image[i][j][2] = fmin(fmax(0, illumination[2]), 1)*256;
+            image[i][j][0] = fmin(fmax(0, illumination[0]), 1)*255;
+            image[i][j][1] = fmin(fmax(0, illumination[1]), 1)*255;
+            image[i][j][2] = fmin(fmax(0, illumination[2]), 1)*255;
 
         }
     }
 
-    // printf("%f, %f, %f \n", illumination[0], illumination[1], illumination[2]);
-
-    // float* objects, int* objects_len ,float* lights, float* camera, float* illumination, float*single_object
+    printf("P3\n");
+    printf("%d %d\n", N, N);
+    printf("255 \n");
+    for(int j=N-1; j>=0;j--){
+        for(int i=0; i<N; i++){
+            printf("%d %d %d\n", image[i][j][0], image[i][j][1], image[i][j][2]);
+        }
+    }
 }

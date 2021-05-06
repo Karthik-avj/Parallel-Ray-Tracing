@@ -79,8 +79,8 @@ class Light:
     self.diffuse = np.array(diffuse)
     self.specular = np.array(specular)
 
-nr = 400
-nc = 400
+nr = 5
+nc = 5
 
 pixels = np.zeros((nr, nc))
 
@@ -99,8 +99,10 @@ objects = np.array([
 
 lights = np.array([
                    Light([5, 5, 5], [1, 1, 1], [1, 1, 1], [1, 1, 1]),
-                   Light([-5, 5, 5], [1, 1, 1], [1, 1, 1], [1, 1, 1]),
+                #    Light([-5, 5, 5], [1, 1, 1], [1, 1, 1], [1, 1, 1]),
                 ])
+
+light = Light([5, 5, 5], [1, 1, 1], [1, 1, 1], [1, 1, 1])
 
 
 for i, y in enumerate(np.linspace(screen[1], screen[3], nr)):
@@ -115,6 +117,7 @@ for i, y in enumerate(np.linspace(screen[1], screen[3], nr)):
         
         for light in lights:
             is_shadowed, normal_surface, light_intersection = shadowed(min_dist, origin, ray_dir, light.position, objects, nearest_object_idx)
+            print(is_shadowed)
             if is_shadowed:
                 continue
             
@@ -124,4 +127,3 @@ for i, y in enumerate(np.linspace(screen[1], screen[3], nr)):
 
 image = np.clip(image, 0, 1)
 plt.imsave('image.png', image)
-
