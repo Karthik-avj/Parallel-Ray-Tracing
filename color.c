@@ -1,7 +1,7 @@
 #include<math.h>
 
-float* color(float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light){
-    float illumination[3] = {0, 0, 0};
+float* color(float* illumination, float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light){
+    // float illumination[3] = {0, 0, 0};
     float ambient[3] = {object[4]*light[3], object[5]*light[4], object[6]*light[5]};
 
     float nl_dp = normal_surface[0] * light_intersection[0] + \
@@ -25,6 +25,4 @@ float* color(float* normal_surface, float* light_intersection, float* ray_dir, f
     illumination[0] = ambient[0] + diffuse[0] + specular[0];
     illumination[1] = ambient[1] + diffuse[1] + specular[1];
     illumination[2] = ambient[2] + diffuse[2] + specular[2];
-
-    return illumination;
 }
