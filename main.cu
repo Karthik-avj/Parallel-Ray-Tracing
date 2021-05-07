@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define N 500
+#define N 10000
+#define MAX(x,y) ( ((x) > (y)) ? x : y )
+#define MIN(x,y) ( ((x) < (y)) ? x : y )
+
 
 __device__ void ray_direction(float* origin, float* point, float* vector){
     float dr[3];
@@ -140,8 +143,8 @@ __global__ void single_pixel(float* objects, int* objects_len, float* lights, fl
     float dx = 2.0/N;
     float illumination[3];
     float single_object[14];
-    int row = blockId.x*blockDim.x+threadIdx.x;
-    int col = blockId.y*blockDim.y+threadIdx.y;
+    int row = blockIdx.x*blockDim.x+threadIdx.x;
+    int col = blockIdx.y*blockDim.y+threadIdx.y;
     float point[] = {-1+row * dx, -1+col * dx, 0};
     float ray_dir[3];
     ray_direction(camera, point, ray_dir);
@@ -168,9 +171,9 @@ __global__ void single_pixel(float* objects, int* objects_len, float* lights, fl
     }
     color(normal, light_dir, ray_dir, single_object, lights, illumination);
 
-    image[3 * N * row + 3*col + 0] = fmin(fmax(0, illumination[0]), 1)*255;
-    image[3 * N * row + 3*col + 1] = fmin(fmax(0, illumination[1]), 1)*255;
-    image[3 * N * row + 3*col + 2] = fmin(fmax(0, illumination[2]), 1)*255;
+    image[3 * N * row + 3*col + 0] = MIN(MAX(0, illumination[0]), 1)*255;
+    image[3 * N * row + 3*col + 1] = MIN(MAX(0, illumination[1]), 1)*255;
+    image[3 * N * row + 3*col + 2] = MIN(MAX(0, illumination[2]), 1)*255;
 }
 
 
@@ -182,23 +185,22 @@ int main(){
     int objects_len = 4;
     float light[] = {5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
-    float dx = 2.0 / N;
     int *image;
-    image = (int*)malloc(size_image);
     int size_image = N*N*3*sizeof(int);
+    image = (int*)malloc(size_image);
     int size_objects = objects_len*14*sizeof(float);
 
     float *dev_objects, *dev_light, *dev_camera;
     int *dev_objects_len, *dev_image;
 
-    cudaMalloc((void**), &dev_objects, size_objects);
-    cudaMalloc((void**), &dev_objects_len, sizeof(int));
-    cudaMalloc((void**), &dev_light, 12*sizeof(float));
-    cudaMalloc((void**), &dev_camera, 3*sizeof(float));
-    cudaMalloc((void**), &dev_image, size_image);
+    cudaMalloc((void**) &dev_objects, size_objects);
+    cudaMalloc((void**) &dev_objects_len, sizeof(int));
+    cudaMalloc((void**) &dev_light, 12*sizeof(float));
+    cudaMalloc((void**) &dev_camera, 3*sizeof(float));
+    cudaMalloc((void**) &dev_image, size_image);
 
     cudaMemcpy(dev_objects, objects, size_objects, cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_objects_len, objects_len, 12*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_objects_len, &objects_len, sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_light, light, 12*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_camera, camera, 3*sizeof(float), cudaMemcpyHostToDevice);
 
