@@ -10,7 +10,7 @@ void ray_direction(float* origin, float* point, float* vector){
     dr[1] = point[1]-origin[1];
     dr[2] = point[2]-origin[2];
 
-    float norm = sqrt(dr[0]*dr[0] + dr[1]*dr[1]+dr[2]*dr[2]);
+    float norm = sqrt(dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2]);
     vector[0] = dr[0]/norm;
     vector[1] = dr[1]/norm;
     vector[2] = dr[2]/norm;
@@ -61,8 +61,6 @@ void nearest_intersection_object(float *objects, float *origin, int *object_n, f
 		sphere_intersection(origin, ray_direction, center, &objects[i*(*object_n)+3], &distances[i]);
 	}
 
-    // *min_dist = __INT_MAX__;
-
 	for(int i=0; i<(*objects_len); i++){
 		if((distances[i]<(*min_dist)) && (distances[i]>0)){
 			*min_dist = distances[i];
@@ -96,10 +94,10 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *min_dist, fl
     // line 48
     float min_distance = __INT_MAX__;
     int useless = -1;
-    nearest_intersection_object(objects, origin, object_n, ray_dir, objects_len, &min_distance, &useless);
+    nearest_intersection_object(objects, shifted_point, object_n, light_dir, objects_len, &min_distance, &useless);
 
     // line 49
-    float intersection_to_light_dist = (light_source[0]-intersection_point[0])*(light_source[0]-intersection_point[0]) + (light_source[1]-intersection_point[1])*(light_source[1]-intersection_point[1]) + (light_source[2]-intersection_point[2])*(light_source[2]-intersection_point[2]);
+    float intersection_to_light_dist = sqrt((light_source[0]-intersection_point[0])*(light_source[0]-intersection_point[0]) + (light_source[1]-intersection_point[1])*(light_source[1]-intersection_point[1]) + (light_source[2]-intersection_point[2])*(light_source[2]-intersection_point[2]));
 
     // line 50
     if (min_distance < intersection_to_light_dist) {
@@ -144,23 +142,24 @@ void single_pixel(float* objects, int* objects_len ,float* lights, float* camera
     float min_dist = __INT_MAX__;
     int n_object_idx = -1, object_n = 14;
 
-
     nearest_intersection_object(objects, camera, &object_n, ray_dir, objects_len, &min_dist, &n_object_idx);
 
-    if (n_object_idx != -1){
-        int is_shad, dummy;
-        float normal[3], light_dir[3];
+    if (n_object_idx == -1)
+        return;
+    
+    int is_shad;
+    float normal[3], light_dir[3];
 
-        float light_pos[] = {lights[0], lights[1], lights[2]};
-        shadowed(&is_shad, normal, light_dir, &min_dist, camera, ray_dir, light_pos, objects, &n_object_idx, &object_n, objects_len);
-        // printf("%d\n", is_shad);
-        if (is_shad == 0){
-            for (int i=0; i<object_n; i++){
-                single_object[i] = objects[n_object_idx*object_n + i];
-            }
-            color(normal, light_dir, ray_dir, single_object, lights, illumination);
-        }
+    float light_pos[] = {lights[0], lights[1], lights[2]};
+    shadowed(&is_shad, normal, light_dir, &min_dist, camera, ray_dir, light_pos, objects, &n_object_idx, &object_n, objects_len);
+
+    if (is_shad == 1)
+        return;
+
+    for (int i=0; i<object_n; i++){
+        single_object[i] = objects[n_object_idx*object_n + i];
     }
+    color(normal, light_dir, ray_dir, single_object, lights, illumination);
 }
 
 

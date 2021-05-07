@@ -79,8 +79,8 @@ class Light:
     self.diffuse = np.array(diffuse)
     self.specular = np.array(specular)
 
-nr = 5
-nc = 5
+nr = 20
+nc = 20
 
 pixels = np.zeros((nr, nc))
 
@@ -123,7 +123,7 @@ for i, y in enumerate(np.linspace(screen[1], screen[3], nr)):
             
             image[i, j] += color(normal_surface, light_intersection, ray_dir, objects[nearest_object_idx], light)
         
-    print("%d/%d" % (i + 1, nr))
+    # print("%d/%d" % (i + 1, nr))
 
 image = np.clip(image, 0, 1)
 plt.imsave('image.png', image)
