@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define N 10000
+#define N 2000
 #define MAX(x,y) ( ((x) > (y)) ? x : y )
 #define MIN(x,y) ( ((x) < (y)) ? x : y )
 
@@ -145,6 +145,10 @@ __global__ void single_pixel(float* objects, int* objects_len, float* lights, fl
     float single_object[14];
     int row = blockIdx.x*blockDim.x+threadIdx.x;
     int col = blockIdx.y*blockDim.y+threadIdx.y;
+
+    if(row > N || col > N)
+        return;
+
     float point[] = {-1+row * dx, -1+col * dx, 0};
     float ray_dir[3];
     ray_direction(camera, point, ray_dir);
