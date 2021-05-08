@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define N 1920
+#define N 1080
 #define M 1080
 #define NUM_OBJ 4
 #define OBJ_LEN 15
@@ -148,7 +148,7 @@ __device__ void color(float* normal_surface, float* light_intersection, float* r
     illumination[2] += *reflection *(ambient[2] + diffuse[2] + specular[2]);
 }
 
-__global__ void single_pixel(float* objects, float* lights, float* camera, float* screen, int* max_depth){
+__global__ void single_pixel(float* objects, float* lights, float* camera, float* screen, int* image, int* max_depth){
     int row = blockIdx.x*blockDim.x+threadIdx.x;
     int col = blockIdx.y*blockDim.y+threadIdx.y;
 
@@ -159,9 +159,9 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
     float origin[3];
     float dx = (screen[1] - screen[0]) / N;
     float dy = (screen[3] - screen[2]) / M;
-    float point[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
+    float point[] = {screen[0] + dx * row, screen[2] + dy * col, 0};
     float illumination[3];
-    float single_object[14];
+    float single_object[OBJ_LEN];
 
     origin[0] = camera[0];
     origin[1] = camera[1];
@@ -226,20 +226,24 @@ int main(){
     int size_image = N*M*3*sizeof(int);
     image = (int*)malloc(size_image);
 
-    int size_objects = objects_len*14*sizeof(float);
+    int size_objects = NUM_OBJ*14*sizeof(float);
 
-    float *dev_objects, *dev_light, *dev_camera;
+    float *dev_objects, *dev_light, *dev_camera, *dev_screen;
     int *dev_image, *dev_max_depth;
 
     cudaMalloc((void**) &dev_objects, size_objects);
     cudaMalloc((void**) &dev_light, 12*sizeof(float));
     cudaMalloc((void**) &dev_camera, 3*sizeof(float));
     cudaMalloc((void**) &dev_image, size_image);
+    cudaMalloc((void**) &dev_max_depth, sizeof(int));
+    cudaMalloc((void**) &dev_max_depth, sizeof(int));
+    cudaMalloc((void**) &dev_screen, 4*sizeof(float));
 
     cudaMemcpy(dev_objects, objects, size_objects, cudaMemcpyHostToDevice);
     cudaMemcpy(dev_light, light, 12*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_camera, camera, 3*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_max_depth, max_depth, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_max_depth, &max_depth, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_screen, screen, 4*sizeof(float), cudaMemcpyHostToDevice);
 
     dim3 blockDim(16, 16);
     int k, l;
@@ -253,9 +257,9 @@ int main(){
     } else {
         l = M/blockDim.x + 1;
     }
-    dim3 gridDim(k, l);
+    dim3 gridDim(k, k);
 
-    single_pixel<<<gridDim, blockDim>>>(dev_objects, dev_light, dev_camera, dev_image, dev_max_depth);
+    single_pixel<<<gridDim, blockDim>>>(dev_objects, dev_light, dev_camera, dev_screen, dev_image, dev_max_depth);
 
     cudaMemcpy(image, dev_image, size_image, cudaMemcpyDeviceToHost);
 
@@ -268,5 +272,10 @@ int main(){
         }
     }
 
+    cudaFree(dev_objects);
+    cudaFree(dev_light);
+    cudaFree(dev_camera);
+    cudaFree(dev_image);
+    cudaFree(dev_screen);
     free(image);
 }
