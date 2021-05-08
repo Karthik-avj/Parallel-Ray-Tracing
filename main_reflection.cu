@@ -6,14 +6,10 @@
 #define M 1080
 #define NUM_OBJ 4
 #define OBJ_LEN 15
+#define MAX(x,y) ( ((x) > (y)) ? x : y )
+#define MIN(x,y) ( ((x) < (y)) ? x : y )
 
-// void random_sphere_generator(float* objects){
-//     float big_radius = 
-//     float small_radius = 
-//     float y_small = 
-// }
-
-void ray_direction(float* origin, float* point, float* vector){
+__device__ void ray_direction(float* origin, float* point, float* vector){
     float dr[3];
     dr[0] = point[0]-origin[0];
     dr[1] = point[1]-origin[1];
@@ -25,7 +21,7 @@ void ray_direction(float* origin, float* point, float* vector){
     vector[2] = dr[2]/norm;
 }
 
-void reflected_direction(float* incoming, float* normal, float* reflected){
+__device__ void reflected_direction(float* incoming, float* normal, float* reflected){
     float dr[3];
     float dp = incoming[0]*normal[0] + incoming[1]*normal[1] + incoming[2]*normal[2];
     dr[0] = incoming[0] - 2*dp*normal[0];
@@ -38,21 +34,7 @@ void reflected_direction(float* incoming, float* normal, float* reflected){
     reflected[2] = dr[2]/norm;
 }
 
-// void plane_intersection(float* origin, float* ray_dir, float* plane, float* dist){
-//     float num = plane[3] - origin[0]*plane[0] - origin[1]*plane[1] - origin[2]*plane[2];
-//     float den = plane[0]*ray_dir[0] + plane[1]*ray_dir[1] + plane[2]*ray_dir[2];
-//     if (den == 0){
-//         *dist = -1;
-//         return;
-//     }
-//     *dist = num/den;
-//     if (*dist < 0){
-//         *dist = -1;
-//         return;
-//     }
-// }
-
-void sphere_intersection(float* origin, float* ray_direction, float* center, float* radius, float* dist){
+__device__ void sphere_intersection(float* origin, float* ray_direction, float* center, float* radius, float* dist){
     float b, c, disc;
     float dr[3];
     dr[0] = origin[0]-center[0];
@@ -86,7 +68,7 @@ void sphere_intersection(float* origin, float* ray_direction, float* center, flo
     }
 }
 
-void nearest_intersection_object(float *objects, float *origin, float *ray_direction, float *min_dist, int *object_idx){
+__device__ void nearest_intersection_object(float *objects, float *origin, float *ray_direction, float *min_dist, int *object_idx){
 	float distances[NUM_OBJ];
 	for(int i=0; i<(NUM_OBJ); i++){
 		float center[] = {objects[i*OBJ_LEN+0], objects[i*OBJ_LEN+1], objects[i*OBJ_LEN+2]};
@@ -101,7 +83,7 @@ void nearest_intersection_object(float *objects, float *origin, float *ray_direc
 	}
 }
 
-void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_point, float *min_dist, float *origin, float *ray_dir,
+__device__ void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_point, float *min_dist, float *origin, float *ray_dir,
               float *light_source, float *objects, int *object_idx){
     // line 43
     float intersection_point[3];
@@ -139,7 +121,7 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_poin
     }
 }
 
-void color(float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light, float* reflection, float* illumination){
+__device__ void color(float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light, float* reflection, float* illumination){
     // float illumination[3] = {0, 0, 0};
     float ambient[3] = {object[4]*light[3], object[5]*light[4], object[6]*light[5]};
 
@@ -166,9 +148,20 @@ void color(float* normal_surface, float* light_intersection, float* ray_dir, flo
     illumination[2] += *reflection *(ambient[2] + diffuse[2] + specular[2]);
 }
 
-void single_pixel(float* objects ,float* lights, float* camera, float* illumination, float* single_object, float* point, int max_depth){
+__global__ void single_pixel(float* objects, float* lights, float* camera, float* screen, int* max_depth){
+    int row = blockIdx.x*blockDim.x+threadIdx.x;
+    int col = blockIdx.y*blockDim.y+threadIdx.y;
+
+    if((row > N) || (col > M))
+        return;
+    
     float ray_dir[3];
     float origin[3];
+    float dx = (screen[1] - screen[0]) / N;
+    float dy = (screen[3] - screen[2]) / M;
+    float point[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
+    float illumination[3];
+    float single_object[14];
 
     origin[0] = camera[0];
     origin[1] = camera[1];
@@ -177,7 +170,7 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
     ray_direction(origin, point, ray_dir);
     float reflection = 1.0;
 
-    for (int k=0; k < max_depth; k++){
+    for (int k=0; k < *max_depth; k++){
         float min_dist = __INT_MAX__;
         int n_object_idx = -1;
 
@@ -212,6 +205,10 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
 
         reflected_direction(ray_dir, normal, ray_dir);
     }
+    
+    image[3 * M * row + 3*col + 0] = MIN(MAX(0, illumination[0]), 1)*255;
+    image[3 * M * row + 3*col + 1] = MIN(MAX(0, illumination[1]), 1)*255;
+    image[3 * M * row + 3*col + 2] = MIN(MAX(0, illumination[2]), 1)*255;
 }
 
 
@@ -221,27 +218,46 @@ int main(){
                        -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
                        -0.2, -9000, -1, 9000-0.7, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 100, 0
                       };
-    float light[] = {5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    // float light[] = {5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    float light[] = {5, 5, 5, 1, 1, 1, 0.1, 0.1, 0.1, 1, 1, 1};
     float camera[] = {0, 0, 1};
-    float single_object[OBJ_LEN];
     float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
-    float dx = (screen[1] - screen[0]) / N;
-    float dy = (screen[3] - screen[2]) / M;
     int max_depth = 2;
     int *image;
-    image = (int*)malloc(N*M*3*sizeof(int));
+    int size_image = N*M*3*sizeof(int);
+    image = (int*)malloc(size_image);
 
-    for (int i=0; i<N;i++){
-        for (int j=0; j<M;j++){
-            float position[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
-            float illumination[] = {0, 0, 0};
-            single_pixel(objects, light, camera, illumination, single_object, position, max_depth);
-            image[3*M*i+3*j+0] = fmin(fmax(0, illumination[0]), 1)*255;
-            image[3*M*i+3*j+1] = fmin(fmax(0, illumination[1]), 1)*255;
-            image[3*M*i+3*j+2] = fmin(fmax(0, illumination[2]), 1)*255;
-        }
+    int size_objects = objects_len*14*sizeof(float);
+
+    float *dev_objects, *dev_light, *dev_camera;
+    int *dev_image, *dev_max_depth;
+
+    cudaMalloc((void**) &dev_objects, size_objects);
+    cudaMalloc((void**) &dev_light, 12*sizeof(float));
+    cudaMalloc((void**) &dev_camera, 3*sizeof(float));
+    cudaMalloc((void**) &dev_image, size_image);
+
+    cudaMemcpy(dev_objects, objects, size_objects, cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_light, light, 12*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_camera, camera, 3*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_max_depth, max_depth, sizeof(int), cudaMemcpyHostToDevice);
+
+    dim3 blockDim(16, 16);
+    int k, l;
+    if (N%blockDim.x == 0) {
+        k = N/blockDim.x;
+    } else {
+        k = N/blockDim.x + 1;
     }
+    if (M%blockDim.x == 0) {
+        l = M/blockDim.x;
+    } else {
+        l = M/blockDim.x + 1;
+    }
+    dim3 gridDim(k, l);
+
+    single_pixel<<<gridDim, blockDim>>>(dev_objects, dev_light, dev_camera, dev_image, dev_max_depth);
+
+    cudaMemcpy(image, dev_image, size_image, cudaMemcpyDeviceToHost);
 
     printf("P3\n");
     printf("%d %d\n", N, M);
