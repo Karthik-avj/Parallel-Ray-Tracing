@@ -4,10 +4,15 @@
 
 #define N 1920
 #define M 1080
-#define NUM_OBJ 4
+#define NUM_OBJ 2
 #define OBJ_LEN 15
-#define AA 1
-
+#define XL_MIN 5
+#define XL_MAX 5
+#define ZL_MIN 5
+#define ZL_MAX 5
+#define YL 5.0
+#define L_RANDOM 1
+#define AA 0
 
 void ray_direction(float* origin, float* point, float* vector){
     float dr[3];
@@ -123,13 +128,13 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_poin
 
 void color(float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light, float* reflection, float* illumination){
     // float illumination[3] = {0, 0, 0};
-    float ambient[3] = {object[4]*light[3], object[5]*light[4], object[6]*light[5]};
+    float ambient[3] = {object[4]*light[5], object[5]*light[6], object[6]*light[7]};
 
     float nl_dp = normal_surface[0] * light_intersection[0] +
                   normal_surface[1] * light_intersection[1] +
                   normal_surface[2] * light_intersection[2];
 
-    float diffuse[3] = {object[7]*light[3]*nl_dp, object[8]*light[4]*nl_dp, object[9]*light[5]*nl_dp};
+    float diffuse[3] = {object[7]*light[5]*nl_dp, object[8]*light[6]*nl_dp, object[9]*light[7]*nl_dp};
 
     float light_ray[3] = {light_intersection[0]-ray_dir[0], light_intersection[1]-ray_dir[1], light_intersection[2]-ray_dir[2]};
     float norm = sqrt(light_ray[0]*light_ray[0] + light_ray[1]*light_ray[1] + light_ray[2]*light_ray[2]);
@@ -141,7 +146,7 @@ void color(float* normal_surface, float* light_intersection, float* ray_dir, flo
     nlr_dp = nlr_dp / norm;
     nlr_dp = pow(nlr_dp, 0.25*object[13]);
 
-    float specular[3] = {object[10]*light[6]*nlr_dp, object[11]*light[7]*nlr_dp, object[12]*light[8]*nlr_dp};
+    float specular[3] = {object[10]*light[8]*nlr_dp, object[11]*light[9]*nlr_dp, object[12]*light[10]*nlr_dp};
 
     illumination[0] += *reflection *(ambient[0] + diffuse[0] + specular[0]);
     illumination[1] += *reflection *(ambient[1] + diffuse[1] + specular[1]);
@@ -177,41 +182,39 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
         int is_shad;
         float normal[3], light_dir[3], shifted_point[3];
 
-        float light_pos[] = {lights[0], lights[1], lights[2]};
-        shadowed(&is_shad, normal, light_dir, shifted_point, &min_dist, origin, ray_dir, light_pos, objects, &n_object_idx);
+        for (int l=0; l<L_RANDOM; l++){
+            float x_rand = (float)rand()/RAND_MAX;
+            float z_rand = (float)rand()/RAND_MAX;
 
-        if (is_shad == 1)
-            return;
+            float light_pos[] = {lights[0] + x_rand*(lights[1] - lights[0]), lights[4], lights[2] + z_rand*(lights[3] - lights[2])};
+            shadowed(&is_shad, normal, light_dir, shifted_point, &min_dist, origin, ray_dir, light_pos, objects, &n_object_idx);
 
-        for (int i=0; i<OBJ_LEN; i++){
-            single_object[i] = objects[n_object_idx*OBJ_LEN + i];
+            if (is_shad == 1)
+                continue;
+
+            for (int i=0; i<OBJ_LEN; i++){
+                single_object[i] = objects[n_object_idx*OBJ_LEN + i];
+            }
+            color(normal, light_dir, ray_dir, single_object, lights, &reflection, illumination);
+            reflection *= single_object[14];
+            origin[0] = shifted_point[0];
+            origin[1] = shifted_point[1];
+            origin[2] = shifted_point[2];
+
+            reflected_direction(ray_dir, normal, ray_dir);
         }
-        color(normal, light_dir, ray_dir, single_object, lights, &reflection, illumination);
-        reflection *= single_object[14];
-        origin[0] = shifted_point[0];
-        origin[1] = shifted_point[1];
-        origin[2] = shifted_point[2];
 
-        reflected_direction(ray_dir, normal, ray_dir);
     }
 }
 
 
-void random_scene(float* objects, int n_small){
-    objects = (float*) malloc(OBJ_LEN*sizeof(float)*(3+n_small));
-    float obj_big[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
-                       -1.2, -0.3, 0, 0.7, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
-                       -2.3, 0, 0, 0.7, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
-                       -0.2, -9000, -1, 9000-0.7, 1, 0.0, 0.0, 1, 1, 1, 1, 1, 1, 100, 0
-                      };
-}
 int main(){
-    float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
-                       0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
-                       -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
-                       -0.2, -9000, -1, 9000-0.7, 1, 0.0, 0.0, 1, 1, 1, 1, 1, 1, 100, 0
+    float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 1,
+                    //    0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
+                    //    -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
+                       -0.2, -9000, -1, 9000-0.7, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0
                       };
-    float light[] = {6, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     // float light[] = {5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     float camera[] = {0, 0, 1};
     float single_object[OBJ_LEN];
@@ -225,11 +228,27 @@ int main(){
     for (int i=0; i<N;i++){
         for (int j=0; j<M;j++){
             float position[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
+            float position1[] = {screen[0] + dx * i - dx/2, screen[2] + dy * j - dy/2, 0};
+            float position2[] = {screen[0] + dx * i - dx/2, screen[2] + dy * j + dy/2, 0};
+            float position3[] = {screen[0] + dx * i + dx/2, screen[2] + dy * j - dy/2, 0};
+            float position4[] = {screen[0] + dx * i + dx/2, screen[2] + dy * j + dy/2, 0};
+            float position5[] = {screen[0] + dx * i, screen[2] + dy * j + dy/2, 0};
+            float position6[] = {screen[0] + dx * i, screen[2] + dy * j - dy/2, 0};
+            float position7[] = {screen[0] + dx * i + dx/2, screen[2] + dy * j, 0};
+            float position8[] = {screen[0] + dx * i - dx/2, screen[2] + dy * j, 0};
             float illumination[] = {0, 0, 0};
             single_pixel(objects, light, camera, illumination, single_object, position, max_depth);
-            image[3*M*i+3*j+0] = fmin(fmax(0, illumination[0]), 1)*255;
-            image[3*M*i+3*j+1] = fmin(fmax(0, illumination[1]), 1)*255;
-            image[3*M*i+3*j+2] = fmin(fmax(0, illumination[2]), 1)*255;
+            single_pixel(objects, light, camera, illumination, single_object, position1, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position2, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position3, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position4, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position5, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position6, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position7, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position8, max_depth);
+            image[3*M*i+3*j+0] = fmin(fmax(0, sqrt(illumination[0]/(9*(L_RANDOM)))), 1)*255;
+            image[3*M*i+3*j+1] = fmin(fmax(0, sqrt(illumination[1]/(9*(L_RANDOM)))), 1)*255;
+            image[3*M*i+3*j+2] = fmin(fmax(0, sqrt(illumination[2]/(9*(L_RANDOM)))), 1)*255;
         }
     }
 
@@ -262,6 +281,7 @@ int main(){
             printf("%d %d %d\n", image[3*M*i+3*j+0], image[3*M*i+3*j+1], image[3*M*i+3*j+2]);
         }
     }
+
 
     free(image);
 }
