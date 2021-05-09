@@ -21,7 +21,7 @@ __device__ void ray_direction(float* origin, float* point, float* vector){
     vector[2] = dr[2]/norm;
 }
 
-__device__ void reflected_direction(float* incoming, float* normal, float* reflected, int i, int j){
+__device__ void reflected_direction(float* incoming, float* normal, float* reflected){
     float dr[3];
     float dp = incoming[0]*normal[0] + incoming[1]*normal[1] + incoming[2]*normal[2];
     dr[0] = incoming[0] - 2*dp*normal[0];
@@ -205,7 +205,7 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
         origin[1] = shifted_point[1];
         origin[2] = shifted_point[2];
 
-        reflected_direction(ray_dir, normal, ray_dir, row, col);
+        reflected_direction(ray_dir, normal, ray_dir);
 
 
     image[3 * M * row + 3*col + 0] = MIN(MAX(0, illumination[0]), 1)*255;
