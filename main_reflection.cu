@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define N 1080
+#define N 1920
 #define M 1080
 #define NUM_OBJ 4
 #define OBJ_LEN 15
@@ -21,7 +21,7 @@ __device__ void ray_direction(float* origin, float* point, float* vector){
     vector[2] = dr[2]/norm;
 }
 
-__device__ void reflected_direction(float* incoming, float* normal, float* reflected){
+__device__ void reflected_direction(float* incoming, float* normal, float* reflected, int i, int j){
     float dr[3];
     float dp = incoming[0]*normal[0] + incoming[1]*normal[1] + incoming[2]*normal[2];
     dr[0] = incoming[0] - 2*dp*normal[0];
@@ -124,25 +124,25 @@ __device__ void shadowed(int *is_shad, float *normal, float *light_dir, float *s
 __device__ void color(float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light, float* reflection, float* illumination){
     // float illumination[3] = {0, 0, 0};
     float ambient[3] = {object[4]*light[3], object[5]*light[4], object[6]*light[5]};
-
+    
     float nl_dp = normal_surface[0] * light_intersection[0] +
-                  normal_surface[1] * light_intersection[1] +
-                  normal_surface[2] * light_intersection[2];
-
+    normal_surface[1] * light_intersection[1] +
+    normal_surface[2] * light_intersection[2];
+    
     float diffuse[3] = {object[7]*light[3]*nl_dp, object[8]*light[4]*nl_dp, object[9]*light[5]*nl_dp};
-
+    
     float light_ray[3] = {light_intersection[0]-ray_dir[0], light_intersection[1]-ray_dir[1], light_intersection[2]-ray_dir[2]};
     float norm = sqrt(light_ray[0]*light_ray[0] + light_ray[1]*light_ray[1] + light_ray[2]*light_ray[2]);
-
+    
     float nlr_dp = normal_surface[0] * light_ray[0] +
-                   normal_surface[1] * light_ray[1] +
-                   normal_surface[2] * light_ray[2];
-
+    normal_surface[1] * light_ray[1] +
+    normal_surface[2] * light_ray[2];
+    
     nlr_dp = nlr_dp / norm;
     nlr_dp = pow(nlr_dp, 0.25*object[13]);
-
+    
     float specular[3] = {object[10]*light[6]*nlr_dp, object[11]*light[7]*nlr_dp, object[12]*light[8]*nlr_dp};
-
+    
     illumination[0] += *reflection *(ambient[0] + diffuse[0] + specular[0]);
     illumination[1] += *reflection *(ambient[1] + diffuse[1] + specular[1]);
     illumination[2] += *reflection *(ambient[2] + diffuse[2] + specular[2]);
@@ -160,7 +160,7 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
     float dx = (screen[1] - screen[0]) / N;
     float dy = (screen[3] - screen[2]) / M;
     float point[] = {screen[0] + dx * row, screen[2] + dy * col, 0};
-    float illumination[3];
+    float illumination[3] = {};
     float single_object[OBJ_LEN];
 
     origin[0] = camera[0];
@@ -175,14 +175,14 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
         int n_object_idx = -1;
 
         nearest_intersection_object(objects, origin, ray_dir, &min_dist, &n_object_idx);
-    
+
         if (n_object_idx == -1){
             if (k == 0){
                 illumination[0] = 0.52734;
                 illumination[1] = 0.80468;
                 illumination[2] = 0.91796;
             }
-            return;
+            break;
         }
         
         int is_shad;
@@ -190,22 +190,24 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
 
         float light_pos[] = {lights[0], lights[1], lights[2]};
         shadowed(&is_shad, normal, light_dir, shifted_point, &min_dist, origin, ray_dir, light_pos, objects, &n_object_idx);
-
+        
         if (is_shad == 1)
-            return;
+            break;
 
         for (int i=0; i<OBJ_LEN; i++){
             single_object[i] = objects[n_object_idx*OBJ_LEN + i];
         }
+
         color(normal, light_dir, ray_dir, single_object, lights, &reflection, illumination);
+
         reflection *= single_object[14];
         origin[0] = shifted_point[0];
         origin[1] = shifted_point[1];
         origin[2] = shifted_point[2];
 
-        reflected_direction(ray_dir, normal, ray_dir);
-    }
-    
+        reflected_direction(ray_dir, normal, ray_dir, row, col);
+
+
     image[3 * M * row + 3*col + 0] = MIN(MAX(0, illumination[0]), 1)*255;
     image[3 * M * row + 3*col + 1] = MIN(MAX(0, illumination[1]), 1)*255;
     image[3 * M * row + 3*col + 2] = MIN(MAX(0, illumination[2]), 1)*255;
@@ -218,7 +220,7 @@ int main(){
                        -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
                        -0.2, -9000, -1, 9000-0.7, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 100, 0
                       };
-    float light[] = {5, 5, 5, 1, 1, 1, 0.1, 0.1, 0.1, 1, 1, 1};
+    float light[] = {5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
     float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
     int max_depth = 2;
@@ -226,7 +228,7 @@ int main(){
     int size_image = N*M*3*sizeof(int);
     image = (int*)malloc(size_image);
 
-    int size_objects = NUM_OBJ*14*sizeof(float);
+    int size_objects = NUM_OBJ*OBJ_LEN*sizeof(float);
 
     float *dev_objects, *dev_light, *dev_camera, *dev_screen;
     int *dev_image, *dev_max_depth;
@@ -235,7 +237,6 @@ int main(){
     cudaMalloc((void**) &dev_light, 12*sizeof(float));
     cudaMalloc((void**) &dev_camera, 3*sizeof(float));
     cudaMalloc((void**) &dev_image, size_image);
-    cudaMalloc((void**) &dev_max_depth, sizeof(int));
     cudaMalloc((void**) &dev_max_depth, sizeof(int));
     cudaMalloc((void**) &dev_screen, 4*sizeof(float));
 
@@ -257,7 +258,7 @@ int main(){
     } else {
         l = M/blockDim.x + 1;
     }
-    dim3 gridDim(k, k);
+    dim3 gridDim(k, l);
 
     single_pixel<<<gridDim, blockDim>>>(dev_objects, dev_light, dev_camera, dev_screen, dev_image, dev_max_depth);
 
