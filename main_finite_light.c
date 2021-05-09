@@ -2,17 +2,17 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define N 1920
-#define M 1080
-#define NUM_OBJ 2
+#define N 1280
+#define M 720
+#define NUM_OBJ 3
 #define OBJ_LEN 15
-#define XL_MIN 5
-#define XL_MAX 5
-#define ZL_MIN 5
-#define ZL_MAX 5
+#define XL_MIN 4.5
+#define XL_MAX 5.5
+#define ZL_MIN 4.5
+#define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 1
-#define AA 0
+#define L_RANDOM 7
+#define AA 1
 
 void ray_direction(float* origin, float* point, float* vector){
     float dr[3];
@@ -103,7 +103,7 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_poin
 
     // line 45
     for (int i=0; i<3; i++){
-        shifted_point[i] = 0.000001 * normal[i] + intersection_point[i];
+        shifted_point[i] = 0.0001 * normal[i] + intersection_point[i];
     }
 
     // line 46
@@ -209,8 +209,8 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
 
 
 int main(){
-    float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 1,
-                    //    0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
+    float objects[] = {-0.4, 0, -2, 0.7, 0.6667, 0.6627, 0.6784, 0, 0, 0, 0, 0, 0, 100, 1,
+                       0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
                     //    -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
                        -0.2, -9000, -1, 9000-0.7, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0
                       };
@@ -221,7 +221,7 @@ int main(){
     float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
     float dx = (screen[1] - screen[0]) / N;
     float dy = (screen[3] - screen[2]) / M;
-    int max_depth = 1;
+    int max_depth = 3;
     int *image;
     image = (int*)malloc(N*M*3*sizeof(int));
 
