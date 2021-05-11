@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <cuda.h>
+#include <cuda_kernel.h>
 
 #define N 1920
 #define M 1080
@@ -238,7 +240,7 @@ int main(){
                        -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
                        -0.2, -9000, -1, 9000-0.7, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 100, 0
                       };
-    float light[] = {5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
     float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
     int *image;
