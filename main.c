@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <math.h>
 
 #define N 1920
 #define M 1080
 #define NUM_OBJ 4
 #define OBJ_LEN 15
+#define N_SMALL 5
+#define MAX_DEPTH 2
 #define AA 1
 
 
@@ -98,7 +101,7 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_poin
 
     // line 45
     for (int i=0; i<3; i++){
-        shifted_point[i] = 0.000001 * normal[i] + intersection_point[i];
+        shifted_point[i] = 0.0001 * normal[i] + intersection_point[i];
     }
 
     // line 46
@@ -148,7 +151,7 @@ void color(float* normal_surface, float* light_intersection, float* ray_dir, flo
     illumination[2] += *reflection *(ambient[2] + diffuse[2] + specular[2]);
 }
 
-void single_pixel(float* objects ,float* lights, float* camera, float* illumination, float* single_object, float* point, int max_depth){
+void single_pixel(float* objects ,float* lights, float* camera, float* illumination, float* single_object, float* point){
     float ray_dir[3];
     float origin[3];
 
@@ -159,7 +162,7 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
     ray_direction(origin, point, ray_dir);
     float reflection = 1.0;
 
-    for (int k=0; k < max_depth; k++){
+    for (int k=0; k < MAX_DEPTH; k++){
         float min_dist = __INT_MAX__;
         int n_object_idx = -1;
 
@@ -196,29 +199,58 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
     }
 }
 
-
-void random_scene(float* objects, int n_small){
-    objects = (float*) malloc(OBJ_LEN*sizeof(float)*(3+n_small));
-    float obj_big[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
-                       -1.2, -0.3, 0, 0.7, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
-                       -2.3, 0, 0, 0.7, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
-                       -0.2, -9000, -1, 9000-0.7, 1, 0.0, 0.0, 1, 1, 1, 1, 1, 1, 100, 0
-                      };
+void random_float(float* random){
+    for (int i=0; i<OBJ_LEN; i++){
+        random[i] = (float)rand()/RAND_MAX;
+    }
 }
-int main(){
-    float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
-                       0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
-                       -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
-                       -0.2, -9000, -1, 9000-0.7, 1, 0.0, 0.0, 1, 1, 1, 1, 1, 1, 100, 0
+
+
+void random_scene(float* objects, float radius, float x_min, float x_max, float z_min, float z_max){
+    float obj_big[] = {1.1, 0, -3, 0.7, 1, 0.647, 0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0,
+                       0.4, 0, -5, 0.7, 0.2, 0.992, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0,
+                       -1.2, 0, -8, 0.7, 0.6667, 0.6627, 0.6784, 0, 0, 0, 0, 0, 0, 100, 1,
+                       -0.2, -40000, -1, 40000-0.7, 0.01, 0.01, 0.01, 1, 1, 1, 1, 1, 1, 100, 0
                       };
-    float light[] = {6, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    // float light[] = {5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    
+    for (int i=0; i<4*OBJ_LEN; i++){
+        objects[i] = obj_big[i];
+    }
+
+    for (int i=4; i<4+N_SMALL; i++){
+        float single_obj[OBJ_LEN];
+        random_float(single_obj);
+        single_obj[0] = x_min + single_obj[0]*(x_max - x_min);
+        single_obj[1] = radius-0.7;
+        single_obj[2] = z_min + single_obj[2]*(z_max - z_min);
+        single_obj[3] = radius;
+        single_obj[4] *= 0.15;
+        single_obj[5] *= 0.15;
+        single_obj[6] *= 0.15;
+        single_obj[8] = 1;
+        single_obj[9] = 1;
+        single_obj[11] = 1;
+        single_obj[12] = 1;
+        single_obj[13] *= 100;
+
+        for (int j=0; j<OBJ_LEN; j++){
+            objects[i*OBJ_LEN+j] = single_obj[j];
+        }
+    }
+
+}
+
+int main(){
+    float *objects;
+    objects = (float*)malloc((4+N_SMALL)*OBJ_LEN*sizeof(float));
+    srand(time(0));
+    random_scene(objects, 0.2, -2, 2, -4, 0);
+    float light[] = {-3, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
     float single_object[OBJ_LEN];
     float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
     float dx = (screen[1] - screen[0]) / N;
     float dy = (screen[3] - screen[2]) / M;
-    int max_depth = 1;
     int *image;
     image = (int*)malloc(N*M*3*sizeof(int));
 
@@ -226,7 +258,7 @@ int main(){
         for (int j=0; j<M;j++){
             float position[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
             float illumination[] = {0, 0, 0};
-            single_pixel(objects, light, camera, illumination, single_object, position, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position);
             image[3*M*i+3*j+0] = fmin(fmax(0, illumination[0]), 1)*255;
             image[3*M*i+3*j+1] = fmin(fmax(0, illumination[1]), 1)*255;
             image[3*M*i+3*j+2] = fmin(fmax(0, illumination[2]), 1)*255;
