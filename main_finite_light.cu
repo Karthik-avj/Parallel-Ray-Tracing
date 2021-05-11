@@ -13,9 +13,9 @@
 #define ZL_MIN 4.5
 #define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 8
+#define L_RANDOM 20
 #define MAX_DEPTH 2
-#define AA 2
+#define AA 0
 #define MAX(x,y) ( ((x) > (y)) ? x : y )
 #define MIN(x,y) ( ((x) < (y)) ? x : y )
 
@@ -241,8 +241,10 @@ int main(){
     float camera[] = {0, 0, 1};
     float screen[] = {-1.0, 1.0, -(float)M_full/N_full, (float)M_full/N_full};
     int *image, *image_final;
-    int size_image = 9*N_full*M_full*3*sizeof(int);
+    int size_image_final = N*M*3*sizeof(int);
+    int size_image = N_full*M_full*3*sizeof(int);
     image = (int*)malloc(size_image);
+    image_final = (int*)malloc(size_image_final);
 
     int size_objects = NUM_OBJ*OBJ_LEN*sizeof(float);
 
@@ -300,26 +302,28 @@ int main(){
             }
     }
 
-    for (int i=AA; i<N-AA; i++){
-        for (int j=AA; j<M-AA; j++){
+    if(AA != 0){
+        for (int i=AA; i<N-AA; i++){
+            for (int j=AA; j<M-AA; j++){
 
-            int sum_red = 0;
-            int sum_green = 0;
-            int sum_blue = 0;
+                int sum_red = 0;
+                int sum_green = 0;
+                int sum_blue = 0;
 
-            for (int k=-AA; k<=AA; k++){
-                for (int l=-AA; l<=AA; l++){
-                    sum_red += image_final[3*M*(i+k)+3*(j+l)+0];
-                    sum_green += image_final[3*M*(i+k)+3*(j+l)+1];
-                    sum_blue += image_final[3*M*(i+k)+3*(j+l)+2];
+                for (int k=-AA; k<=AA; k++){
+                    for (int l=-AA; l<=AA; l++){
+                        sum_red += image_final[3*M*(i+k)+3*(j+l)+0];
+                        sum_green += image_final[3*M*(i+k)+3*(j+l)+1];
+                        sum_blue += image_final[3*M*(i+k)+3*(j+l)+2];
+                    }
                 }
-            }
 
-            image_final[3*M*i + 3*j + 0] = sum_red/((2*AA+1)*(2*AA+1));
-            image_final[3*M*i + 3*j + 1] = sum_green/((2*AA+1)*(2*AA+1));
-            image_final[3*M*i + 3*j + 2] = sum_blue/((2*AA+1)*(2*AA+1));
-            
-            }
+                image_final[3*M*i + 3*j + 0] = sum_red/((2*AA+1)*(2*AA+1));
+                image_final[3*M*i + 3*j + 1] = sum_green/((2*AA+1)*(2*AA+1));
+                image_final[3*M*i + 3*j + 2] = sum_blue/((2*AA+1)*(2*AA+1));
+                
+                }
+        }
     }
     
     printf("P3\n");
