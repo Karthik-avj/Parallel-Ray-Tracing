@@ -279,6 +279,27 @@ int main(){
 
     cudaMemcpy(image, dev_image, size_image, cudaMemcpyDeviceToHost);
 
+    for (int i=AA; i<N-AA; i++){
+        for (int j=AA; j<M-AA; j++){
+
+            int sum_red = 0;
+            int sum_green = 0;
+            int sum_blue = 0;
+
+            for (int k=-AA; k<=AA; k++){
+                for (int l=-AA; l<=AA; l++){
+                    sum_red += image[3*M*(i+k)+3*(j+l)+0];
+                    sum_green += image[3*M*(i+k)+3*(j+l)+1];
+                    sum_blue += image[3*M*(i+k)+3*(j+l)+2];
+                }
+            }
+
+            image[3*M*i+3*j+0] = sum_red/((2*AA+1)*(2*AA+1));
+            image[3*M*i+3*j+1] = sum_green/((2*AA+1)*(2*AA+1));
+            image[3*M*i+3*j+2] = sum_blue/((2*AA+1)*(2*AA+1));
+        }
+    }
+    
     printf("P3\n");
     printf("%d %d\n", N, M);
     printf("255 \n");
