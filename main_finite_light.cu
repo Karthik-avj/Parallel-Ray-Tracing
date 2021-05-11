@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <cuda.h>
-#include <cuda_kernel.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
 #define N 1920
 #define M 1080
