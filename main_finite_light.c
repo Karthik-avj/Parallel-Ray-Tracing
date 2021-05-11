@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define N 1280
-#define M 720
+#define N 1920
+#define M 1080
 #define NUM_OBJ 3
 #define OBJ_LEN 15
 #define XL_MIN 4.5
