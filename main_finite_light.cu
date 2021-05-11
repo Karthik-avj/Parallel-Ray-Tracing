@@ -6,14 +6,14 @@
 
 #define N 1920
 #define M 1080
-#define NUM_OBJ 4
+#define NUM_OBJ 2
 #define OBJ_LEN 15
 #define XL_MIN 4.5
 #define XL_MAX 5.5
 #define ZL_MIN 4.5
 #define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 7
+#define L_RANDOM 1
 #define AA 1
 #define MAX_DEPTH 1
 #define MAX(x,y) ( ((x) > (y)) ? x : y )
@@ -109,7 +109,7 @@ __device__ void shadowed(int *is_shad, float *normal, float *light_dir, float *s
 
     // line 45
     for (int i=0; i<3; i++){
-        shifted_point[i] = 0.000001 * normal[i] + intersection_point[i];
+        shifted_point[i] = 0.0001 * normal[i] + intersection_point[i];
     }
 
     // line 46
@@ -196,6 +196,10 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
                 
                 int is_shad;
                 float normal[3], light_dir[3], shifted_point[3];
+                
+                for (int i=0; i<OBJ_LEN; i++){
+                    single_object[i] = objects[n_object_idx*OBJ_LEN + i];
+                }
     
                 for (int l=0; l<L_RANDOM; l++){
                     curandState_t state;
@@ -209,20 +213,16 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
                     if (is_shad == 1)
                         continue;
             
-                    for (int i=0; i<OBJ_LEN; i++){
-                        single_object[i] = objects[n_object_idx*OBJ_LEN + i];
-                    }
-            
                     color(normal, light_dir, ray_dir, single_object, lights, &reflection, illumination);
             
-                    reflection *= single_object[14];
-                    origin[0] = shifted_point[0];
-                    origin[1] = shifted_point[1];
-                    origin[2] = shifted_point[2];
-            
-                    reflected_direction(ray_dir, normal, ray_dir);
                 }
+                
+            reflection *= single_object[14];
+            origin[0] = shifted_point[0];
+            origin[1] = shifted_point[1];
+            origin[2] = shifted_point[2];
     
+            reflected_direction(ray_dir, normal, ray_dir);
             }
             
         }
@@ -238,7 +238,7 @@ int main(){
     float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
                     //    0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
                     //    -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
-                       -0.2, -9000, -1, 9000-0.7, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0
+                    -0.2, -9000, -1, 9000-0.7, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0
                       };
     float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
