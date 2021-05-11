@@ -6,16 +6,16 @@
 
 #define N 1920
 #define M 1080
-#define NUM_OBJ 2
+#define NUM_OBJ 4
 #define OBJ_LEN 15
 #define XL_MIN 4.5
 #define XL_MAX 5.5
 #define ZL_MIN 4.5
 #define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 1
-#define AA 1
-#define MAX_DEPTH 1
+#define L_RANDOM 8
+#define MAX_DEPTH 2
+#define AA 2
 #define MAX(x,y) ( ((x) > (y)) ? x : y )
 #define MIN(x,y) ( ((x) < (y)) ? x : y )
 
@@ -159,92 +159,89 @@ __device__ void color(float* normal_surface, float* light_intersection, float* r
     illumination[2] += *reflection *(ambient[2] + diffuse[2] + specular[2]);
 }
 
-__global__ void single_pixel(float* objects, float* lights, float* camera, float* screen, int* image){
+__global__ void single_pixel(float* objects, float* lights, float* camera, float* screen, int* image, int N_full, int M_full){
     int row = blockIdx.x*blockDim.x+threadIdx.x;
     int col = blockIdx.y*blockDim.y+threadIdx.y;
 
-    if((row > N) || (col > M))
+    if((row > N_full) || (col > M_full))
         return;
     
     float ray_dir[3];
     float origin[3];
-    float dx = (screen[1] - screen[0]) / N;
-    float dy = (screen[3] - screen[2]) / M;
+    float dx = (screen[1] - screen[0]) / N_full;
+    float dy = (screen[3] - screen[2]) / M_full;
     float illumination[3] = {};
 
-    for (int i=-1; i<=1; i++){
-        for (int j=-1; j<=1; j++){
-            float point[] = {screen[0] + dx * row + i*dx/2, screen[2] + dy * col + j*dy/2, 0};
-            float single_object[OBJ_LEN];
-    
-            origin[0] = camera[0];
-            origin[1] = camera[1];
-            origin[2] = camera[2];
-    
-            ray_direction(origin, point, ray_dir);
-            float reflection = 1.0;
-    
-            for (int k=0; k < MAX_DEPTH; k++){
-                float min_dist = __INT_MAX__;
-                int n_object_idx = -1;
-    
-                nearest_intersection_object(objects, origin, ray_dir, &min_dist, &n_object_idx);
-    
-                if (n_object_idx == -1){
-                    break;
-                }
-                
-                int is_shad;
-                float normal[3], light_dir[3], shifted_point[3];
-                
-                for (int i=0; i<OBJ_LEN; i++){
-                    single_object[i] = objects[n_object_idx*OBJ_LEN + i];
-                }
-    
-                for (int l=0; l<L_RANDOM; l++){
-                    curandState_t state;
-                    curand_init(M*row+N*col, 0, 0, &state);
-                    float x_rand = curand_uniform(&state);
-                    float z_rand = curand_uniform(&state);
-    
-                    float light_pos[] = {lights[0] + x_rand*(lights[1] - lights[0]), lights[4], lights[2] + z_rand*(lights[3] - lights[2])};
-                    shadowed(&is_shad, normal, light_dir, shifted_point, &min_dist, origin, ray_dir, light_pos, objects, &n_object_idx);
-                    
-                    if (is_shad == 1)
-                        continue;
-            
-                    color(normal, light_dir, ray_dir, single_object, lights, &reflection, illumination);
-            
-                }
-                
-            reflection *= single_object[14];
-            origin[0] = shifted_point[0];
-            origin[1] = shifted_point[1];
-            origin[2] = shifted_point[2];
-    
-            reflected_direction(ray_dir, normal, ray_dir);
-            }
-            
+    float point[] = {screen[0] + dx * row, screen[2] + dy * col, 0};
+    float single_object[OBJ_LEN];
+
+    origin[0] = camera[0];
+    origin[1] = camera[1];
+    origin[2] = camera[2];
+
+    ray_direction(origin, point, ray_dir);
+    float reflection = 1.0;
+
+    for (int k=0; k < MAX_DEPTH; k++){
+        float min_dist = __INT_MAX__;
+        int n_object_idx = -1;
+
+        nearest_intersection_object(objects, origin, ray_dir, &min_dist, &n_object_idx);
+
+        if (n_object_idx == -1){
+            break;
         }
+        
+        int is_shad;
+        float normal[3], light_dir[3], shifted_point[3];
+        
+        for (int i=0; i<OBJ_LEN; i++){
+            single_object[i] = objects[n_object_idx*OBJ_LEN + i];
+        }
+
+        for (int l=0; l<L_RANDOM; l++){
+            curandState_t state;
+            curand_init(M_full*row+N_full*col, 0, 0, &state);
+            float x_rand = curand_uniform(&state);
+            float z_rand = curand_uniform(&state);
+
+            float light_pos[] = {lights[0] + x_rand*(lights[1] - lights[0]), lights[4], lights[2] + z_rand*(lights[3] - lights[2])};
+            shadowed(&is_shad, normal, light_dir, shifted_point, &min_dist, origin, ray_dir, light_pos, objects, &n_object_idx);
+            
+            if (is_shad == 1)
+                continue;
+    
+            color(normal, light_dir, ray_dir, single_object, lights, &reflection, illumination);
+    
+        }
+        
+        reflection *= single_object[14];
+        origin[0] = shifted_point[0];
+        origin[1] = shifted_point[1];
+        origin[2] = shifted_point[2];
+
+        reflected_direction(ray_dir, normal, ray_dir);
     }
 
-    image[3 * M * row + 3*col + 0] = MIN(MAX(0, sqrt(illumination[0]/(9*L_RANDOM))), 1)*255;
-    image[3 * M * row + 3*col + 1] = MIN(MAX(0, sqrt(illumination[1]/(9*L_RANDOM))), 1)*255;
-    image[3 * M * row + 3*col + 2] = MIN(MAX(0, sqrt(illumination[2]/(9*L_RANDOM))), 1)*255;
+    image[3 * M_full * row + 3*col + 0] = MIN(MAX(0, sqrt(illumination[0]/(L_RANDOM))), 1)*255;
+    image[3 * M_full * row + 3*col + 1] = MIN(MAX(0, sqrt(illumination[1]/(L_RANDOM))), 1)*255;
+    image[3 * M_full * row + 3*col + 2] = MIN(MAX(0, sqrt(illumination[2]/(L_RANDOM))), 1)*255;
 }
 
 
 int main(){
+    int N_full = 2*N+1;
+    int M_full = 2*M+1;
     float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
-                    //    0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
-                    //    -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
+                       0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
+                       -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
                     -0.2, -9000, -1, 9000-0.7, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0
                       };
     float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
-    float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
-    int *image;
-    int size_image = N*M*3*sizeof(int);
+    float screen[] = {-1.0, 1.0, -(float)M_full/N_full, (float)M_full/N_full};
+    int *image, *image_final;
+    int size_image = 9*N_full*M_full*3*sizeof(int);
     image = (int*)malloc(size_image);
 
     int size_objects = NUM_OBJ*OBJ_LEN*sizeof(float);
@@ -265,21 +262,43 @@ int main(){
 
     dim3 blockDim(16, 16);
     int k, l;
-    if (N%blockDim.x == 0) {
-        k = N/blockDim.x;
+    if (N_full%blockDim.x == 0) {
+        k = N_full/blockDim.x;
     } else {
-        k = N/blockDim.x + 1;
+        k = N_full/blockDim.x + 1;
     }
-    if (M%blockDim.x == 0) {
-        l = M/blockDim.x;
+    if (M_full%blockDim.x == 0) {
+        l = M_full/blockDim.x;
     } else {
-        l = M/blockDim.x + 1;
+        l = M_full/blockDim.x + 1;
     }
     dim3 gridDim(k, l);
 
-    single_pixel<<<gridDim, blockDim>>>(dev_objects, dev_light, dev_camera, dev_screen, dev_image);
+    single_pixel<<<gridDim, blockDim>>>(dev_objects, dev_light, dev_camera, dev_screen, dev_image, N_full, M_full);
 
     cudaMemcpy(image, dev_image, size_image, cudaMemcpyDeviceToHost);
+
+    for (int i=1; i<N_full-1; i+=2){
+        for (int j=1; j<M_full-1; j+=2){
+
+            int sum_red = 0;
+            int sum_green = 0;
+            int sum_blue = 0;
+
+            for (int k=-1; k<=1; k++){
+                for (int l=-1; l<=1; l++){
+                    sum_red += image[3*M_full*(i+k)+3*(j+l)+0];
+                    sum_green += image[3*M_full*(i+k)+3*(j+l)+1];
+                    sum_blue += image[3*M_full*(i+k)+3*(j+l)+2];
+                }
+            }
+
+            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 0] = sum_red/9;
+            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 1] = sum_green/9;
+            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 2] = sum_blue/9;
+            
+            }
+    }
 
     for (int i=AA; i<N-AA; i++){
         for (int j=AA; j<M-AA; j++){
@@ -290,24 +309,25 @@ int main(){
 
             for (int k=-AA; k<=AA; k++){
                 for (int l=-AA; l<=AA; l++){
-                    sum_red += image[3*M*(i+k)+3*(j+l)+0];
-                    sum_green += image[3*M*(i+k)+3*(j+l)+1];
-                    sum_blue += image[3*M*(i+k)+3*(j+l)+2];
+                    sum_red += image_final[3*M*(i+k)+3*(j+l)+0];
+                    sum_green += image_final[3*M*(i+k)+3*(j+l)+1];
+                    sum_blue += image_final[3*M*(i+k)+3*(j+l)+2];
                 }
             }
 
-            image[3*M*i+3*j+0] = sum_red/((2*AA+1)*(2*AA+1));
-            image[3*M*i+3*j+1] = sum_green/((2*AA+1)*(2*AA+1));
-            image[3*M*i+3*j+2] = sum_blue/((2*AA+1)*(2*AA+1));
-        }
+            image_final[3*M*i + 3*j + 0] = sum_red/((2*AA+1)*(2*AA+1));
+            image_final[3*M*i + 3*j + 1] = sum_green/((2*AA+1)*(2*AA+1));
+            image_final[3*M*i + 3*j + 2] = sum_blue/((2*AA+1)*(2*AA+1));
+            
+            }
     }
     
     printf("P3\n");
     printf("%d %d\n", N, M);
     printf("255 \n");
-    for(int j=M-1; j>=0;j--){
+    for(int j=M-1; j>=0; j--){
         for(int i=0; i<N; i++){
-            printf("%d %d %d\n", image[3*M*i+3*j+0], image[3*M*i+3*j+1], image[3*M*i+3*j+2]);
+            printf("%d %d %d\n", image_final[3*M*i+3*j+0], image_final[3*M*i+3*j+1], image_final[3*M*i+3*j+2]);
         }
     }
 
@@ -317,4 +337,5 @@ int main(){
     cudaFree(dev_image);
     cudaFree(dev_screen);
     free(image);
+    free(image_final);
 }
