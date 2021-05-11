@@ -11,7 +11,7 @@
 #define ZL_MIN 4.5
 #define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 7
+#define L_RANDOM 8
 #define MAX_DEPTH 2
 #define AA 2
 
@@ -210,6 +210,8 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
 
 
 int main(){
+    int N_big = 2*N+1;
+    int M_big = 2*M+1;
     float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
                        0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
                        -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
@@ -218,37 +220,45 @@ int main(){
     float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
     float single_object[OBJ_LEN];
-    float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
-    float dx = (screen[1] - screen[0]) / N;
-    float dy = (screen[3] - screen[2]) / M;
-    int *image;
-    image = (int*)malloc(N*M*3*sizeof(int));
+    float screen[] = {-1.0, 1.0, -(float)M_big/N_big, (float)M_big/N_big};
+    float dx = (screen[1] - screen[0]) / N_big;
+    float dy = (screen[3] - screen[2]) / M_big;
+    int *image, *image_final;
+    image = (int*)malloc(N_big*M_big*3*sizeof(int));
+    image_final = (int*)malloc(N*M*3*sizeof(int));
 
-    for (int i=0; i<N;i++){
-        for (int j=0; j<M;j++){
+    for (int i=0; i<N_big;i++){
+        for (int j=0; j<M_big;j++){
             float position[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
-            float position1[] = {screen[0] + dx * i - dx/2, screen[2] + dy * j - dy/2, 0};
-            float position2[] = {screen[0] + dx * i - dx/2, screen[2] + dy * j + dy/2, 0};
-            float position3[] = {screen[0] + dx * i + dx/2, screen[2] + dy * j - dy/2, 0};
-            float position4[] = {screen[0] + dx * i + dx/2, screen[2] + dy * j + dy/2, 0};
-            float position5[] = {screen[0] + dx * i, screen[2] + dy * j + dy/2, 0};
-            float position6[] = {screen[0] + dx * i, screen[2] + dy * j - dy/2, 0};
-            float position7[] = {screen[0] + dx * i + dx/2, screen[2] + dy * j, 0};
-            float position8[] = {screen[0] + dx * i - dx/2, screen[2] + dy * j, 0};
             float illumination[] = {0, 0, 0};
             single_pixel(objects, light, camera, illumination, single_object, position);
-            single_pixel(objects, light, camera, illumination, single_object, position1);
-            single_pixel(objects, light, camera, illumination, single_object, position2);
-            single_pixel(objects, light, camera, illumination, single_object, position3);
-            single_pixel(objects, light, camera, illumination, single_object, position4);
-            single_pixel(objects, light, camera, illumination, single_object, position5);
-            single_pixel(objects, light, camera, illumination, single_object, position6);
-            single_pixel(objects, light, camera, illumination, single_object, position7);
-            single_pixel(objects, light, camera, illumination, single_object, position8);
-            image[3*M*i+3*j+0] = fmin(fmax(0, sqrt(illumination[0]/(9*(L_RANDOM)))), 1)*255;
-            image[3*M*i+3*j+1] = fmin(fmax(0, sqrt(illumination[1]/(9*(L_RANDOM)))), 1)*255;
-            image[3*M*i+3*j+2] = fmin(fmax(0, sqrt(illumination[2]/(9*(L_RANDOM)))), 1)*255;
+            image[3*M_big*i+3*j+0] = fmin(fmax(0, sqrt(illumination[0]/(L_RANDOM))), 1)*255;
+            image[3*M_big*i+3*j+1] = fmin(fmax(0, sqrt(illumination[1]/(L_RANDOM))), 1)*255;
+            image[3*M_big*i+3*j+2] = fmin(fmax(0, sqrt(illumination[2]/(L_RANDOM))), 1)*255;
         }
+    }
+
+
+    for (int i=1; i<N_big-1; i+=2){
+        for (int j=1; j<M_big-1; j+=2){
+
+            int sum_red = 0;
+            int sum_green = 0;
+            int sum_blue = 0;
+
+            for (int k=-1; k<=1; k++){
+                for (int l=-1; l<=1; l++){
+                    sum_red += image[3*M_big*(i+k)+3*(j+l)+0];
+                    sum_green += image[3*M_big*(i+k)+3*(j+l)+1];
+                    sum_blue += image[3*M_big*(i+k)+3*(j+l)+2];
+                }
+            }
+
+            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 0] = sum_red/9;
+            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 1] = sum_green/9;
+            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 2] = sum_blue/9;
+            
+            }
     }
 
     for (int i=AA; i<N-AA; i++){
@@ -260,27 +270,31 @@ int main(){
 
             for (int k=-AA; k<=AA; k++){
                 for (int l=-AA; l<=AA; l++){
-                    sum_red += image[3*M*(i+k)+3*(j+l)+0];
-                    sum_green += image[3*M*(i+k)+3*(j+l)+1];
-                    sum_blue += image[3*M*(i+k)+3*(j+l)+2];
+                    sum_red += image_final[3*M*(i+k)+3*(j+l)+0];
+                    sum_green += image_final[3*M*(i+k)+3*(j+l)+1];
+                    sum_blue += image_final[3*M*(i+k)+3*(j+l)+2];
                 }
             }
 
-            image[3*M*i+3*j+0] = sum_red/((2*AA+1)*(2*AA+1));
-            image[3*M*i+3*j+1] = sum_green/((2*AA+1)*(2*AA+1));
-            image[3*M*i+3*j+2] = sum_blue/((2*AA+1)*(2*AA+1));
-        }
+            image_final[3*M*i + 3*j + 0] = sum_red/((2*AA+1)*(2*AA+1));
+            image_final[3*M*i + 3*j + 1] = sum_green/((2*AA+1)*(2*AA+1));
+            image_final[3*M*i + 3*j + 2] = sum_blue/((2*AA+1)*(2*AA+1));
+            
+            }
     }
+
+    
 
     printf("P3\n");
     printf("%d %d\n", N, M);
     printf("255 \n");
-    for(int j=M-1; j>=0;j--){
+    for(int j=M-1; j>=0; j--){
         for(int i=0; i<N; i++){
-            printf("%d %d %d\n", image[3*M*i+3*j+0], image[3*M*i+3*j+1], image[3*M*i+3*j+2]);
+            printf("%d %d %d\n", image_final[3*M*i+3*j+0], image_final[3*M*i+3*j+1], image_final[3*M*i+3*j+2]);
         }
     }
 
 
     free(image);
+    free(image_final);
 }
