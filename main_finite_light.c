@@ -2,18 +2,17 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define N 1920
-#define M 1080
-#define NUM_OBJ 4
+#define N 1280
+#define M 720
+#define NUM_OBJ 2
 #define OBJ_LEN 15
 #define XL_MIN 4.5
 #define XL_MAX 5.5
 #define ZL_MIN 4.5
 #define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 8
+#define L_RANDOM 1
 #define MAX_DEPTH 2
-#define AA 2
 
 void ray_direction(float* origin, float* point, float* vector){
     float dr[3];
@@ -172,7 +171,7 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
         nearest_intersection_object(objects, origin, ray_dir, &min_dist, &n_object_idx);
     
         if (n_object_idx == -1){
-            return;
+            break;
         }
         
         int is_shad;
@@ -183,9 +182,10 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
         }
 
         for (int l=0; l<L_RANDOM; l++){
-            float l_reflection = reflection;
-            float x_rand = (float)rand()/RAND_MAX;
-            float z_rand = (float)rand()/RAND_MAX;
+            // float x_rand = (float)rand()/RAND_MAX;
+            // float z_rand = (float)rand()/RAND_MAX;
+            float x_rand = 0.5;
+            float z_rand = 0.5;
 
             float light_pos[] = {lights[0] + x_rand*(lights[1] - lights[0]), lights[4], lights[2] + z_rand*(lights[3] - lights[2])};
             
@@ -213,8 +213,8 @@ int main(){
     int N_big = 2*N+1;
     int M_big = 2*M+1;
     float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
-                       0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
-                       -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
+                    //    0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
+                    //    -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
                        -0.2, -9000, -1, 9000-0.7, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0
                       };
     float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
@@ -239,60 +239,37 @@ int main(){
     }
 
 
-    for (int i=1; i<N_big-1; i+=2){
-        for (int j=1; j<M_big-1; j+=2){
+    // for (int i=1; i<N_big-1; i+=2){
+    //     for (int j=1; j<M_big-1; j+=2){
 
-            int sum_red = 0;
-            int sum_green = 0;
-            int sum_blue = 0;
+    //         int sum_red = 0;
+    //         int sum_green = 0;
+    //         int sum_blue = 0;
 
-            for (int k=-1; k<=1; k++){
-                for (int l=-1; l<=1; l++){
-                    sum_red += image[3*M_big*(i+k)+3*(j+l)+0];
-                    sum_green += image[3*M_big*(i+k)+3*(j+l)+1];
-                    sum_blue += image[3*M_big*(i+k)+3*(j+l)+2];
-                }
-            }
+    //         for (int k=-1; k<=1; k++){
+    //             for (int l=-1; l<=1; l++){
+    //                 sum_red += image[3*M_big*(i+k)+3*(j+l)+0];
+    //                 sum_green += image[3*M_big*(i+k)+3*(j+l)+1];
+    //                 sum_blue += image[3*M_big*(i+k)+3*(j+l)+2];
+    //             }
+    //         }
 
-            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 0] = sum_red/9;
-            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 1] = sum_green/9;
-            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 2] = sum_blue/9;
+    //         image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 0] = sum_red/9;
+    //         image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 1] = sum_green/9;
+    //         image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 2] = sum_blue/9;
             
-            }
-    }
+    //         }
+    // }
 
-    for (int i=AA; i<N-AA; i++){
-        for (int j=AA; j<M-AA; j++){
 
-            int sum_red = 0;
-            int sum_green = 0;
-            int sum_blue = 0;
-
-            for (int k=-AA; k<=AA; k++){
-                for (int l=-AA; l<=AA; l++){
-                    sum_red += image_final[3*M*(i+k)+3*(j+l)+0];
-                    sum_green += image_final[3*M*(i+k)+3*(j+l)+1];
-                    sum_blue += image_final[3*M*(i+k)+3*(j+l)+2];
-                }
-            }
-
-            image_final[3*M*i + 3*j + 0] = sum_red/((2*AA+1)*(2*AA+1));
-            image_final[3*M*i + 3*j + 1] = sum_green/((2*AA+1)*(2*AA+1));
-            image_final[3*M*i + 3*j + 2] = sum_blue/((2*AA+1)*(2*AA+1));
-            
-            }
-    }
-
-    
-
-    printf("P3\n");
-    printf("%d %d\n", N, M);
-    printf("255 \n");
-    for(int j=M-1; j>=0; j--){
-        for(int i=0; i<N; i++){
-            printf("%d %d %d\n", image_final[3*M*i+3*j+0], image_final[3*M*i+3*j+1], image_final[3*M*i+3*j+2]);
-        }
-    }
+    // printf("P3\n");
+    // printf("%d %d\n", N, M);
+    // printf("255 \n");
+    // for(int j=M-1; j>=0; j--){
+    //     for(int i=0; i<N; i++){
+    //         printf("%d %d %d\n", image_final[3*M*i+3*j+0], image_final[3*M*i+3*j+1], image_final[3*M*i+3*j+2]);
+    //     }
+    // }
 
 
     free(image);

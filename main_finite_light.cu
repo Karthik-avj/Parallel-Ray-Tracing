@@ -4,8 +4,8 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#define N 1920
-#define M 1080
+#define N 1280
+#define M 720
 #define NUM_OBJ 4
 #define OBJ_LEN 15
 #define XL_MIN 4.5
@@ -13,9 +13,8 @@
 #define ZL_MIN 4.5
 #define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 20
+#define L_RANDOM 1
 #define MAX_DEPTH 2
-#define AA 0
 #define MAX(x,y) ( ((x) > (y)) ? x : y )
 #define MIN(x,y) ( ((x) < (y)) ? x : y )
 
@@ -199,9 +198,10 @@ __global__ void single_pixel(float* objects, float* lights, float* camera, float
             single_object[i] = objects[n_object_idx*OBJ_LEN + i];
         }
 
+        curandState_t state;
+        curand_init(M_full*row+N_full*col, 0, 0, &state);
+        
         for (int l=0; l<L_RANDOM; l++){
-            curandState_t state;
-            curand_init(M_full*row+N_full*col, 0, 0, &state);
             float x_rand = curand_uniform(&state);
             float z_rand = curand_uniform(&state);
 
@@ -280,60 +280,37 @@ int main(){
 
     cudaMemcpy(image, dev_image, size_image, cudaMemcpyDeviceToHost);
 
-    for (int i=1; i<N_full-1; i+=2){
-        for (int j=1; j<M_full-1; j+=2){
+    // for (int i=1; i<N_full-1; i+=2){
+    //     for (int j=1; j<M_full-1; j+=2){
 
-            int sum_red = 0;
-            int sum_green = 0;
-            int sum_blue = 0;
+    //         int sum_red = 0;
+    //         int sum_green = 0;
+    //         int sum_blue = 0;
 
-            for (int k=-1; k<=1; k++){
-                for (int l=-1; l<=1; l++){
-                    sum_red += image[3*M_full*(i+k)+3*(j+l)+0];
-                    sum_green += image[3*M_full*(i+k)+3*(j+l)+1];
-                    sum_blue += image[3*M_full*(i+k)+3*(j+l)+2];
-                }
-            }
+    //         for (int k=-1; k<=1; k++){
+    //             for (int l=-1; l<=1; l++){
+    //                 sum_red += image[3*M_full*(i+k)+3*(j+l)+0];
+    //                 sum_green += image[3*M_full*(i+k)+3*(j+l)+1];
+    //                 sum_blue += image[3*M_full*(i+k)+3*(j+l)+2];
+    //             }
+    //         }
 
-            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 0] = sum_red/9;
-            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 1] = sum_green/9;
-            image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 2] = sum_blue/9;
+    //         image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 0] = sum_red/9;
+    //         image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 1] = sum_green/9;
+    //         image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 2] = sum_blue/9;
             
-            }
-    }
+    //         }
+    // }
 
-    if(AA != 0){
-        for (int i=AA; i<N-AA; i++){
-            for (int j=AA; j<M-AA; j++){
-
-                int sum_red = 0;
-                int sum_green = 0;
-                int sum_blue = 0;
-
-                for (int k=-AA; k<=AA; k++){
-                    for (int l=-AA; l<=AA; l++){
-                        sum_red += image_final[3*M*(i+k)+3*(j+l)+0];
-                        sum_green += image_final[3*M*(i+k)+3*(j+l)+1];
-                        sum_blue += image_final[3*M*(i+k)+3*(j+l)+2];
-                    }
-                }
-
-                image_final[3*M*i + 3*j + 0] = sum_red/((2*AA+1)*(2*AA+1));
-                image_final[3*M*i + 3*j + 1] = sum_green/((2*AA+1)*(2*AA+1));
-                image_final[3*M*i + 3*j + 2] = sum_blue/((2*AA+1)*(2*AA+1));
-                
-                }
-        }
-    }
     
-    printf("P3\n");
-    printf("%d %d\n", N, M);
-    printf("255 \n");
-    for(int j=M-1; j>=0; j--){
-        for(int i=0; i<N; i++){
-            printf("%d %d %d\n", image_final[3*M*i+3*j+0], image_final[3*M*i+3*j+1], image_final[3*M*i+3*j+2]);
-        }
-    }
+    // printf("P3\n");
+    // printf("%d %d\n", N, M);
+    // printf("255 \n");
+    // for(int j=M-1; j>=0; j--){
+    //     for(int i=0; i<N; i++){
+    //         printf("%d %d %d\n", image_final[3*M*i+3*j+0], image_final[3*M*i+3*j+1], image_final[3*M*i+3*j+2]);
+    //     }
+    // }
 
     cudaFree(dev_objects);
     cudaFree(dev_light);
