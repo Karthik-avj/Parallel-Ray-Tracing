@@ -12,6 +12,7 @@
 #define ZL_MAX 5.5
 #define YL 5.0
 #define L_RANDOM 7
+#define MAX_DEPTH 2
 #define AA 2
 
 void ray_direction(float* origin, float* point, float* vector){
@@ -153,7 +154,7 @@ void color(float* normal_surface, float* light_intersection, float* ray_dir, flo
     illumination[2] += *reflection *(ambient[2] + diffuse[2] + specular[2]);
 }
 
-void single_pixel(float* objects ,float* lights, float* camera, float* illumination, float* single_object, float* point, int max_depth){
+void single_pixel(float* objects ,float* lights, float* camera, float* illumination, float* single_object, float* point){
     float ray_dir[3];
     float origin[3];
 
@@ -164,18 +165,13 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
     ray_direction(origin, point, ray_dir);
     float reflection = 1.0;
 
-    for (int k=0; k < max_depth; k++){
+    for (int k=0; k < MAX_DEPTH; k++){
         float min_dist = __INT_MAX__;
         int n_object_idx = -1;
 
         nearest_intersection_object(objects, origin, ray_dir, &min_dist, &n_object_idx);
     
         if (n_object_idx == -1){
-            // if (k == 0){
-            //     illumination[0] = 0.52734;
-            //     illumination[1] = 0.80468;
-            //     illumination[2] = 0.91796;
-            // }
             return;
         }
         
@@ -220,13 +216,11 @@ int main(){
                        -0.2, -9000, -1, 9000-0.7, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 100, 0
                       };
     float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    // float light[] = {5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     float camera[] = {0, 0, 1};
     float single_object[OBJ_LEN];
     float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
     float dx = (screen[1] - screen[0]) / N;
     float dy = (screen[3] - screen[2]) / M;
-    int max_depth = 2;
     int *image;
     image = (int*)malloc(N*M*3*sizeof(int));
 
@@ -242,15 +236,15 @@ int main(){
             float position7[] = {screen[0] + dx * i + dx/2, screen[2] + dy * j, 0};
             float position8[] = {screen[0] + dx * i - dx/2, screen[2] + dy * j, 0};
             float illumination[] = {0, 0, 0};
-            single_pixel(objects, light, camera, illumination, single_object, position, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position1, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position2, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position3, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position4, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position5, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position6, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position7, max_depth);
-            single_pixel(objects, light, camera, illumination, single_object, position8, max_depth);
+            single_pixel(objects, light, camera, illumination, single_object, position);
+            single_pixel(objects, light, camera, illumination, single_object, position1);
+            single_pixel(objects, light, camera, illumination, single_object, position2);
+            single_pixel(objects, light, camera, illumination, single_object, position3);
+            single_pixel(objects, light, camera, illumination, single_object, position4);
+            single_pixel(objects, light, camera, illumination, single_object, position5);
+            single_pixel(objects, light, camera, illumination, single_object, position6);
+            single_pixel(objects, light, camera, illumination, single_object, position7);
+            single_pixel(objects, light, camera, illumination, single_object, position8);
             image[3*M*i+3*j+0] = fmin(fmax(0, sqrt(illumination[0]/(9*(L_RANDOM)))), 1)*255;
             image[3*M*i+3*j+1] = fmin(fmax(0, sqrt(illumination[1]/(9*(L_RANDOM)))), 1)*255;
             image[3*M*i+3*j+2] = fmin(fmax(0, sqrt(illumination[2]/(9*(L_RANDOM)))), 1)*255;
