@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include<omp.h>
+#include<mpi.h>
+#include<time.h>
 
-#define N 1920
-#define M 1080
+#define N 500
+#define M 500
 #define NUM_OBJ 4
 #define OBJ_LEN 15
-#define AA 1
-
 
 void ray_direction(float* origin, float* point, float* vector){
     float dr[3];
@@ -34,6 +34,7 @@ void reflected_direction(float* incoming, float* normal, float* reflected){
     reflected[1] = dr[1]/norm;
     reflected[2] = dr[2]/norm;
 }
+
 
 void sphere_intersection(float* origin, float* ray_direction, float* center, float* radius, float* dist){
     float b, c, disc;
@@ -86,34 +87,27 @@ void nearest_intersection_object(float *objects, float *origin, float *ray_direc
 
 void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_point, float *min_dist, float *origin, float *ray_dir,
               float *light_source, float *objects, int *object_idx){
-    // line 43
     float intersection_point[3];
     for (int i=0; i<3; i++){
         intersection_point[i] = *min_dist * ray_dir[i] + origin[i];
     }
 
-    // line 44
     float object_center[] = {objects[*object_idx * OBJ_LEN], objects[*object_idx * OBJ_LEN + 1], objects[*object_idx * OBJ_LEN + 2]};
     ray_direction(object_center, intersection_point, normal);
 
 
-    // line 45
     for (int i=0; i<3; i++){
         shifted_point[i] = 0.000001 * normal[i] + intersection_point[i];
     }
 
-    // line 46
     ray_direction(shifted_point, light_source, light_dir);
 
-    // line 48
     float min_distance = __INT_MAX__;
     int useless = -1;
     nearest_intersection_object(objects, shifted_point, light_dir, &min_distance, &useless);
 
-    // line 49
     float intersection_to_light_dist = sqrt((light_source[0]-intersection_point[0])*(light_source[0]-intersection_point[0]) + (light_source[1]-intersection_point[1])*(light_source[1]-intersection_point[1]) + (light_source[2]-intersection_point[2])*(light_source[2]-intersection_point[2]));
 
-    // line 50
     if (min_distance < intersection_to_light_dist) {
         *is_shad = 1;
     }
@@ -123,7 +117,6 @@ void shadowed(int *is_shad, float *normal, float *light_dir, float *shifted_poin
 }
 
 void color(float* normal_surface, float* light_intersection, float* ray_dir, float* object, float* light, float* reflection, float* illumination){
-    // float illumination[3] = {0, 0, 0};
     float ambient[3] = {object[4]*light[3], object[5]*light[4], object[6]*light[5]};
 
     float nl_dp = normal_surface[0] * light_intersection[0] +
@@ -158,6 +151,7 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
     origin[2] = camera[2];
 
     ray_direction(origin, point, ray_dir);
+
     float reflection = 1.0;
 
     for (int k=0; k < max_depth; k++){
@@ -166,12 +160,8 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
 
         nearest_intersection_object(objects, origin, ray_dir, &min_dist, &n_object_idx);
 
+
         if (n_object_idx == -1){
-            // if (k == 0){
-            //     illumination[0] = 0.52734;
-            //     illumination[1] = 0.80468;
-            //     illumination[2] = 0.91796;
-            // }
             return;
         }
 
@@ -188,6 +178,7 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
             single_object[i] = objects[n_object_idx*OBJ_LEN + i];
         }
         color(normal, light_dir, ray_dir, single_object, lights, &reflection, illumination);
+
         reflection *= single_object[14];
         origin[0] = shifted_point[0];
         origin[1] = shifted_point[1];
@@ -198,52 +189,90 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
 }
 
 
-void random_scene(float* objects, int n_small){
-    objects = (float*) malloc(OBJ_LEN*sizeof(float)*(3+n_small));
-    float obj_big[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
-                       -1.2, -0.3, 0, 0.7, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
-                       -2.3, 0, 0, 0.7, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
-                       -0.2, -9000, -1, 9000-0.7, 1, 0.0, 0.0, 1, 1, 1, 1, 1, 1, 100, 0
-                      };
-}
-int main(){
+int main(int argc, char** argv){
     float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
                        0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
                        -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
-                       -0.2, -9000, -1, 9000-0.7, 1, 0.0, 0.0, 1, 1, 1, 1, 1, 1, 100, 0
+                       -0.2, -9000, -1, 9000-0.7, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 100, 0
                       };
-    float light[] = {6, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    // float light[] = {5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    float light[] = {5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
     float camera[] = {0, 0, 1};
-    float single_object[OBJ_LEN];
     float screen[] = {-1.0, 1.0, -(float)M/N, (float)M/N};
     float dx = (screen[1] - screen[0]) / N;
     float dy = (screen[3] - screen[2]) / M;
-    int max_depth = 1;
+    int max_depth = 3;
     int *image;
+    clock_t start, end;
     image = (int*)malloc(N*M*3*sizeof(int));
 
-    # pragma parallel omp for
-    for (int i=0; i<N;i++){
+    int my_PE_num, total_PE_num;
+    MPI_Status status;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_PE_num);
+    MPI_Comm_size(MPI_COMM_WORLD, &total_PE_num);
+    int size = N / (total_PE_num);
+    int leftover = N % (total_PE_num);
+
+    if (my_PE_num == 0){
+        for (int i=1; i<total_PE_num;i++){
+            int row_start_idx = (i-1) * size;
+
+            MPI_Send(image + M * row_start_idx * 3 + 0, 3*M*size, MPI_INT, i, 0, MPI_COMM_WORLD);
+        }
+
+        for (int i=1; i<total_PE_num;i++){
+            int row_start_idx = (i-1) * size;
+            MPI_Recv(image + M * row_start_idx * 3 + 0, 3*M*size, MPI_INT, i, 1, MPI_COMM_WORLD, &status);
+        }
+
         #pragma parallel omp for
-        for (int j=0; j<M;j++){
-            float position[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
-            float illumination[] = {0, 0, 0};
-            single_pixel(objects, light, camera, illumination, single_object, position, max_depth);
-            image[3*M*i+3*j+0] = fmin(fmax(0, illumination[0]), 1)*255;
-            image[3*M*i+3*j+1] = fmin(fmax(0, illumination[1]), 1)*255;
-            image[3*M*i+3*j+2] = fmin(fmax(0, illumination[2]), 1)*255;
+        for (int i= N - leftover - size - 1; i<N;i++){
+                #pragma parallel omp for
+                for (int j=0; j<M;j++){
+                    float position[] = {screen[0] + dx * (i), screen[2] + dy * j, 0};
+                    float illumination[] = {0, 0, 0};
+                    float single_object[OBJ_LEN];
+
+                    single_pixel(objects, light, camera, illumination, single_object, position, max_depth);
+                    image[3*M*i+3*j+0] = fmin(fmax(0, illumination[0]), 1)*255;
+                    image[3*M*i+3*j+1] = fmin(fmax(0, illumination[1]), 1)*255;
+                    image[3*M*i+3*j+2] = fmin(fmax(0, illumination[2]), 1)*255;
+                    }
+            }
+
+        printf("P3\n");
+        printf("%d %d\n", N, M);
+        printf("255 \n");
+        for(int j=M-1; j>=0;j--){
+            for(int i=0; i<N; i++){
+                printf("%d %d %d\n", image[3*M*i+3*j+0], image[3*M*i+3*j+1], image[3*M*i+3*j+2]);
+            }
         }
+
     }
 
-    printf("P3\n");
-    printf("%d %d\n", N, M);
-    printf("255 \n");
-    for(int j=M-1; j>=0;j--){
-        for(int i=0; i<N; i++){
-            printf("%d %d %d\n", image[3*M*i+3*j+0], image[3*M*i+3*j+1], image[3*M*i+3*j+2]);
-        }
+    else{
+            MPI_Recv(image, 3*M*size, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+            #pragma parallel omp for
+            for (int i=0; i<size;i++){
+                #pragma parallel omp for
+                for (int j=0; j<M;j++){
+                    float position[] = {screen[0] + dx * (i + (my_PE_num-1) * size), screen[2] + dy * j, 0};
+                    float illumination[] = {0, 0, 0};
+                    float single_object[OBJ_LEN];
+
+                    single_pixel(objects, light, camera, illumination, single_object, position, max_depth);
+
+                    image[3*M*i+3*j+0] = fmin(fmax(0, illumination[0]), 1)*255;
+                    image[3*M*i+3*j+1] = fmin(fmax(0, illumination[1]), 1)*255;
+                    image[3*M*i+3*j+2] = fmin(fmax(0, illumination[2]), 1)*255;
+                    }
+            }
+            MPI_Send(image, 3*M*size, MPI_INT, 0, 1, MPI_COMM_WORLD);
     }
 
+    MPI_Finalize();
     free(image);
 }
