@@ -1,9 +1,12 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+#include "stdio.h"
+#include "math.h"
+#include "time.h"
+#include "stdlib.h"
+#include "omp.h"
+#include "mpi.h"
 
-#define N 1920
-#define M 1080
+#define N 256
+#define M 144
 #define NUM_OBJ 4
 #define OBJ_LEN 15
 #define XL_MIN 4.5
@@ -11,8 +14,28 @@
 #define ZL_MIN 4.5
 #define ZL_MAX 5.5
 #define YL 5.0
-#define L_RANDOM 16
+#define L_RANDOM 8
 #define MAX_DEPTH 3
+
+#define ROOT 0
+
+void distribution_calc(int number_rows, int npes, int *send_rows, int*displs, int each_row){
+    int rows_each = number_rows/npes;
+    int rows_left = number_rows%npes;
+    int rows_sum = 0;
+
+    for (int i=0; i<npes; i++){
+        send_rows[i] = rows_each*each_row;
+        if (rows_left > 0){
+            send_rows[i] += each_row;
+            rows_left -= 1;
+        }
+
+        displs[i] = rows_sum;
+        rows_sum += send_rows[i];
+    }
+
+}
 
 void ray_direction(float* origin, float* point, float* vector){
     float dr[3];
@@ -206,10 +229,12 @@ void single_pixel(float* objects ,float* lights, float* camera, float* illuminat
     }
 }
 
+int main(int argc, char** argv){
+    int mype, npes;
 
-int main(){
     int N_big = 2*N+1;
     int M_big = 2*M+1;
+    int each_row = M_big*3;
     float objects[] = {-0.2, 0, -1, 0.7, 0.1, 0, 0, 0.7, 0, 0, 1, 1, 1, 100, 0.5,
                        0.1, -0.3, 0, 0.1, 0.1, 0, 0.1, 0.7, 0, 0.7, 1, 1, 1, 100, 0.5,
                        -0.3, 0, 0, 0.15, 0, 0.1, 0, 0, 0.6, 0, 1, 1, 1, 100, 0.5,
@@ -217,26 +242,83 @@ int main(){
                       };
     float light[] = {XL_MIN, XL_MAX, ZL_MIN, ZL_MAX, YL, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     float camera[] = {0, 0, 1};
-    float single_object[OBJ_LEN];
     float screen[] = {-1.0, 1.0, -(float)M_big/N_big, (float)M_big/N_big};
     float dx = (screen[1] - screen[0]) / N_big;
     float dy = (screen[3] - screen[2]) / M_big;
-    int *image, *image_final;
+
+    int *image, *image_local, *image_final;
     image = (int*)malloc(N_big*M_big*3*sizeof(int));
+    image_local = (int*)malloc(N_big*M_big*3*sizeof(int));
     image_final = (int*)malloc(N*M*3*sizeof(int));
 
-    for (int i=0; i<N_big;i++){
+    MPI_Status status;
+
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &npes);
+    MPI_Comm_rank(MPI_COMM_WORLD, &mype);
+
+    int *send_rows = malloc(sizeof(int)*npes);
+    int *displs = malloc(sizeof(int)*npes);
+
+    distribution_calc(N_big, npes, send_rows, displs, each_row);
+
+    #pragma omp parallel for firstprivate(objects, light, camera, screen, dx, dy, send_rows, displs, each_row)
+    for (int i=0; i<send_rows[mype]/each_row;i++){
         for (int j=0; j<M_big;j++){
-            float position[] = {screen[0] + dx * i, screen[2] + dy * j, 0};
+            float single_object[OBJ_LEN];
+            float position[] = {screen[0] + dx * (i + displs[mype]/each_row), screen[2] + dy * j, 0};
             float illumination[] = {0, 0, 0};
             single_pixel(objects, light, camera, illumination, single_object, position);
-            image[3*M_big*i+3*j+0] = fmin(fmax(0, sqrt(illumination[0]/(L_RANDOM))), 1)*255;
-            image[3*M_big*i+3*j+1] = fmin(fmax(0, sqrt(illumination[1]/(L_RANDOM))), 1)*255;
-            image[3*M_big*i+3*j+2] = fmin(fmax(0, sqrt(illumination[2]/(L_RANDOM))), 1)*255;
+            image_local[3*M_big*i+3*j+0] = fmin(fmax(0, sqrt(illumination[0]/(L_RANDOM))), 1)*255;
+            image_local[3*M_big*i+3*j+1] = fmin(fmax(0, sqrt(illumination[1]/(L_RANDOM))), 1)*255;
+            image_local[3*M_big*i+3*j+2] = fmin(fmax(0, sqrt(illumination[2]/(L_RANDOM))), 1)*255;
         }
     }
 
+    MPI_Gatherv(image_local, send_rows[mype], MPI_INT, image, send_rows, displs, MPI_INT, ROOT, MPI_COMM_WORLD);
 
+    if (mype == ROOT){
+        for (int i=1; i<N_big-1; i+=2){
+            for (int j=1; j<M_big-1; j+=2){
+
+                int sum_red = 0;
+                int sum_green = 0;
+                int sum_blue = 0;
+
+                for (int k=-1; k<=1; k++){
+                    for (int l=-1; l<=1; l++){
+                        sum_red += image[3*M_big*(i+k)+3*(j+l)+0];
+                        sum_green += image[3*M_big*(i+k)+3*(j+l)+1];
+                        sum_blue += image[3*M_big*(i+k)+3*(j+l)+2];
+                    }
+                }
+
+                image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 0] = sum_red/9;
+                image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 1] = sum_green/9;
+                image_final[3*M*(i-1)/2 + 3*(j-1)/2 + 2] = sum_blue/9;
+                
+                }
+        }
+
+        printf("P3\n");
+        printf("%d %d\n", N, M);
+        printf("255 \n");
+        for(int j=M-1; j>=0; j--){
+            for(int i=0; i<N; i++){
+                printf("%d %d %d\n", image_final[3*M*i+3*j+0], image_final[3*M*i+3*j+1], image_final[3*M*i+3*j+2]);
+            }
+        }
+    }
+
+    free(send_rows);
+    free(displs);
     free(image);
+    free(image_local);
     free(image_final);
+
+    MPI_Finalize();
+
+    return 0;
+
 }
