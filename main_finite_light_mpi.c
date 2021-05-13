@@ -1,6 +1,5 @@
 #include "stdio.h"
 #include "math.h"
-#include "time.h"
 #include "stdlib.h"
 #include "mpi.h"
 
@@ -136,6 +135,7 @@ void nearest_intersection_object(float *objects, float *origin,
 		}
 	}
 }
+
 
 // Checks if the point is in shadow of other objects
 void shadowed(int *is_shad, float *normal, float *light_dir, 
