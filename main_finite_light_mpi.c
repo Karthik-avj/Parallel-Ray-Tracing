@@ -259,6 +259,7 @@ void single_pixel(float* objects ,float* lights, float* camera,
         }
 
         for (int l=0; l<L_RANDOM; l++){
+            // generating random light position
             float x_rand = (float)rand()/RAND_MAX;
             float z_rand = (float)rand()/RAND_MAX;
 
@@ -314,7 +315,7 @@ int main(int argc, char** argv){
     float dy = (screen[3] - screen[2]) / M_big;
 
     // image_local is a local copy used for calculation in each processor
-    // image final is the final image
+    // image_final is the final image
     int *image, *image_local, *image_final;
     image = (int*)malloc(N_big*M_big*3*sizeof(int));
     image_local = (int*)malloc(N_big*M_big*3*sizeof(int));
